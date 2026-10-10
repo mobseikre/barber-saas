@@ -59,9 +59,31 @@ The Next.js admin cannot use the Dart package. It keeps its own TypeScript types
 - **Auth**: phone + password, no SMS or OTP. The phone is normalised and turned into an internal email for Supabase Auth: `0912345678` → `218912345678@app.local`. Users never see this email.
 - **Forgot password**: there is no self-service reset. "نسيت كلمة المرور؟" opens WhatsApp to the support number, and an admin resets the password from the dashboard. The support number is a placeholder for now and must be a single shared constant, not hardcoded per screen.
 - **Cancellation**: customers can cancel a booking up to **2 hours** before its start time. Enforce this on the server (RLS or a database function), not only in the UI.
-- **Ranking**: within the same area, VIP barbers and salons appear first.
+- **Ranking**: within the same area, VIP barbers appear first. VIP is a barber attribute only; salons have no VIP flag.
+- **Upcoming bookings**: a customer can hold at most `2` upcoming confirmed bookings. Enforced in `create_booking`, with the limit in `upcoming_booking_limit()`.
+- **Cities and areas** are lookup tables (`cities`, `areas`) editable by admins. Salons reference an `area_id`.
+- **Salon hours** shown on the salon page are derived from its bookable barbers (earliest open to latest close) via the `salon_hours` view.
 - **Booking statuses**: confirmed (مؤكد), completed (مكتمل), no-show (لم يحضر), cancelled (ملغي). Barbers mark attendance as حضر or لم يحضر and can add manual bookings.
+- **Instant confirmation**: a booking is confirmed the moment it is created. There is no barber approval step.
+- **Barber cancellations** need a reason: sick (مريض), emergency (طارئ) or other (أخرى) with an optional note. The reason is stored on the booking. Customer cancellations have no reason.
+- **Blocking time**: a barber can block time quickly, e.g. "close the rest of today". This is a day closure, either a whole day or from a given time. Existing bookings inside the blocked window are not cancelled automatically; the barber cancels them with a reason.
+- **No-shows**: barbers mark a booking as no-show. No-shows are counted per customer. After `3` no-shows the customer is blocked from creating bookings until an admin unblocks them. The limit lives in one SQL constant function and one shared Dart constant, never inline.
+- **Admin visibility**: the admin can see each barber's cancellation count and reasons.
 - **Estimated income** in barber stats is computed only from completed bookings' prices.
+
+## Database
+
+Migrations live in `supabase/migrations/`, pgTAP tests in `supabase/tests/` (`supabase test db`). Run `supabase db reset` after changing a migration.
+
+- **Tables**: `cities`, `areas`, `profiles`, `salons`, `barbers`, `service_catalog`, `barber_services`, `working_hours`, `breaks`, `day_closures`, `bookings`, `reviews`, `subscription_payments`, `device_tokens`.
+- **`barbers` is separate from `profiles`**: `profile_id` is nullable so admins can list barbers without an account. Bookable = `is_barber_bookable(id)`: status `active`, has an account, `subscription_ends_at` in the future.
+- **Bookings are never written directly from the apps.** RLS allows only reads. Use the RPCs: `create_booking`, `create_manual_booking`, `set_booking_status`, `cancel_booking`, `close_rest_of_today`. Admin-only: `activate_subscription`, `unblock_customer`.
+- **Availability**: `get_available_slots(barber_id, date, duration_min)` returns 15-minute slots in `Africa/Tripoli`, minus working hours, breaks, closures, existing bookings and the past. `create_booking` only accepts a start time that this function returns.
+- **Overlaps** are impossible at the database level: `EXCLUDE USING gist (barber_id WITH =, time_range WITH &&) WHERE (status <> 'cancelled')`.
+- **Constants** are SQL functions: `no_show_limit()` = 3, `upcoming_booking_limit()` = 2, `cancellation_window()` = 2 hours, `app_timezone()`. Mirror them in `packages/shared`, never inline.
+- **Views**: `salon_barbers` (public listing including non-bookable barbers, with `is_bookable`), `salon_hours`, `admin_barber_cancellations`.
+- **Security: the service role key never ships to a client.** It must not appear in the Flutter apps or in browser code of the admin panel. Only Edge Functions and server-side code may use it. The apps use the anon/publishable key with RLS; privileged admin actions (password reset, anything bypassing RLS) go through an Edge Function that checks `is_admin()` first.
+- **Auth metadata**: sign-up must pass `full_name`, `phone` (as `218XXXXXXXXX`) and `role` (`customer` or `barber`) in the user metadata; a trigger creates the profile. `admin` can't be set from metadata.
 
 ## Design system
 
