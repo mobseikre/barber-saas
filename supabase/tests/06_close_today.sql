@@ -1,5 +1,11 @@
 begin;
-select plan(7);
+select plan(8);
+-- Tests use only the reference data; the local dev seed is removed inside this transaction.
+delete from public.bookings;
+delete from public.subscription_payments;
+delete from public.barbers;
+delete from public.salons;
+delete from auth.users;
 create extension if not exists pgtap with schema extensions;
 
 create temp table fx (key text primary key, id uuid not null);
@@ -49,13 +55,13 @@ declare
   v_barber uuid;
   v_barber2 uuid;
 begin
-  perform pg_temp.new_user('admin', '218910000001', 'Admin', 'customer');
+  perform pg_temp.new_user('admin', '218990000001', 'Admin', 'customer');
   update profiles set role = 'admin' where id = pg_temp.fx('admin');
 
-  perform pg_temp.new_user('ali', '218910000002', 'Ali', 'barber');
-  perform pg_temp.new_user('murad', '218910000003', 'Murad', 'barber');
-  perform pg_temp.new_user('khaled', '218910000004', 'Khaled', 'customer');
-  perform pg_temp.new_user('salem', '218910000005', 'Salem', 'customer');
+  perform pg_temp.new_user('ali', '218990000002', 'Ali', 'barber');
+  perform pg_temp.new_user('murad', '218990000003', 'Murad', 'barber');
+  perform pg_temp.new_user('khaled', '218990000004', 'Khaled', 'customer');
+  perform pg_temp.new_user('salem', '218990000005', 'Salem', 'customer');
 
   insert into salons (name, owner_id, area_id) values ('صالون الأناقة', pg_temp.fx('ali'), v_area) returning id into v_salon;
   insert into fx values ('salon', v_salon);
@@ -87,7 +93,7 @@ select pg_temp.setup();
 
 -- bookings are placed inside the time left until local midnight, so the test passes at any hour
 create function pg_temp.later_today(p_fraction float) returns timestamptz language sql stable as $$
-  select now() + (((now() at time zone 'Africa/Tripoli')::date + 1) at time zone 'Africa/Tripoli' - now()) * p_fraction
+  select now() + (((now() at time zone 'Africa/Tripoli')::date + 1)::timestamp at time zone 'Africa/Tripoli' - now()) * p_fraction
 $$;
 
 insert into bookings (id, barber_id, customer_id, service_id, price, duration_min, time_range) values
@@ -102,7 +108,7 @@ insert into bookings (id, barber_id, customer_id, service_id, price, duration_mi
 update bookings set status = 'completed' where id = '00000000-0000-0000-0000-00000000c003';
 
 select pg_temp.login('khaled');
-select throws_ok($$ select close_rest_of_today() $$, 'only barbers can close their day', 'customers cannot close a day');
+select throws_ok($$ select close_rest_of_today() $$, 'not_a_barber', 'customers cannot close a day');
 
 select pg_temp.login('ali');
 select results_eq(
@@ -119,6 +125,17 @@ select results_eq($$ select status::text from bookings where id = '00000000-0000
   'returned bookings are not cancelled silently');
 
 select is((select count(*) from close_rest_of_today())::int, 2, 'calling again is idempotent and still returns the bookings');
+select pg_temp.logout();
+
+-- API sessions run in UTC; a booking just after local midnight belongs to tomorrow
+insert into bookings (id, barber_id, customer_id, service_id, price, duration_min, time_range) values
+  ('00000000-0000-0000-0000-00000000c005', pg_temp.fx('barber'), pg_temp.fx('salem'), pg_temp.fx('haircut'), 25, 30,
+   tstzrange(((now() at time zone 'Africa/Tripoli')::date + 1)::timestamp at time zone 'Africa/Tripoli' + interval '10 minutes',
+             ((now() at time zone 'Africa/Tripoli')::date + 1)::timestamp at time zone 'Africa/Tripoli' + interval '40 minutes', '[)'));
+set local timezone = 'UTC';
+select pg_temp.login('ali');
+select ok('00000000-0000-0000-0000-00000000c005'::uuid not in (select id from close_rest_of_today()),
+  'a booking just after local midnight is not part of the rest of today, even in a UTC session');
 select pg_temp.logout();
 
 select * from finish();

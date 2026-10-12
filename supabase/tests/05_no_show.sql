@@ -1,5 +1,11 @@
 begin;
-select plan(10);
+select plan(11);
+-- Tests use only the reference data; the local dev seed is removed inside this transaction.
+delete from public.bookings;
+delete from public.subscription_payments;
+delete from public.barbers;
+delete from public.salons;
+delete from auth.users;
 create extension if not exists pgtap with schema extensions;
 
 create temp table fx (key text primary key, id uuid not null);
@@ -49,13 +55,13 @@ declare
   v_barber uuid;
   v_barber2 uuid;
 begin
-  perform pg_temp.new_user('admin', '218910000001', 'Admin', 'customer');
+  perform pg_temp.new_user('admin', '218990000001', 'Admin', 'customer');
   update profiles set role = 'admin' where id = pg_temp.fx('admin');
 
-  perform pg_temp.new_user('ali', '218910000002', 'Ali', 'barber');
-  perform pg_temp.new_user('murad', '218910000003', 'Murad', 'barber');
-  perform pg_temp.new_user('khaled', '218910000004', 'Khaled', 'customer');
-  perform pg_temp.new_user('salem', '218910000005', 'Salem', 'customer');
+  perform pg_temp.new_user('ali', '218990000002', 'Ali', 'barber');
+  perform pg_temp.new_user('murad', '218990000003', 'Murad', 'barber');
+  perform pg_temp.new_user('khaled', '218990000004', 'Khaled', 'customer');
+  perform pg_temp.new_user('salem', '218990000005', 'Salem', 'customer');
 
   insert into salons (name, owner_id, area_id) values ('صالون الأناقة', pg_temp.fx('ali'), v_area) returning id into v_salon;
   insert into fx values ('salon', v_salon);
@@ -105,13 +111,16 @@ select results_eq($$ select no_show_count, blocked_at is not null from profiles 
 
 select pg_temp.login('khaled');
 select throws_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '10:00')) $$,
-  'customer is blocked after 3 no-shows', 'a blocked customer cannot book');
+  'customer_blocked', 'a blocked customer cannot book');
 
 select pg_temp.login('ali');
 select set_booking_status('00000000-0000-0000-0000-00000000b003', 'completed');
 select pg_temp.logout();
 select results_eq($$ select no_show_count, blocked_at is not null from profiles where id = pg_temp.fx('khaled') $$,
   $$ values (2, true) $$, 'reverting a no-show decrements the count but keeps the block');
+select pg_temp.login('khaled');
+select throws_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '10:00')) $$,
+  'customer_blocked', 'below the limit again, the customer stays blocked until an admin unblocks');
 
 select pg_temp.login('ali');
 select set_booking_status('00000000-0000-0000-0000-00000000b003', 'no_show');
@@ -120,7 +129,7 @@ select pg_temp.logout();
 select is((select no_show_count from profiles where id = pg_temp.fx('khaled')), 3, 'setting no_show twice counts once');
 
 select pg_temp.login('salem');
-select throws_ok($$ select unblock_customer(pg_temp.fx('khaled')) $$, 'only admins can unblock customers', 'another customer cannot unblock');
+select throws_ok($$ select unblock_customer(pg_temp.fx('khaled')) $$, 'admin_only', 'another customer cannot unblock');
 
 select pg_temp.login('admin');
 select lives_ok($$ select unblock_customer(pg_temp.fx('khaled')) $$, 'admin unblocks the customer');

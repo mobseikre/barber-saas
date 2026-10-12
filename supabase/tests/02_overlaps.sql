@@ -1,5 +1,11 @@
 begin;
 select plan(4);
+-- Tests use only the reference data; the local dev seed is removed inside this transaction.
+delete from public.bookings;
+delete from public.subscription_payments;
+delete from public.barbers;
+delete from public.salons;
+delete from auth.users;
 create extension if not exists pgtap with schema extensions;
 
 create temp table fx (key text primary key, id uuid not null);
@@ -49,13 +55,13 @@ declare
   v_barber uuid;
   v_barber2 uuid;
 begin
-  perform pg_temp.new_user('admin', '218910000001', 'Admin', 'customer');
+  perform pg_temp.new_user('admin', '218990000001', 'Admin', 'customer');
   update profiles set role = 'admin' where id = pg_temp.fx('admin');
 
-  perform pg_temp.new_user('ali', '218910000002', 'Ali', 'barber');
-  perform pg_temp.new_user('murad', '218910000003', 'Murad', 'barber');
-  perform pg_temp.new_user('khaled', '218910000004', 'Khaled', 'customer');
-  perform pg_temp.new_user('salem', '218910000005', 'Salem', 'customer');
+  perform pg_temp.new_user('ali', '218990000002', 'Ali', 'barber');
+  perform pg_temp.new_user('murad', '218990000003', 'Murad', 'barber');
+  perform pg_temp.new_user('khaled', '218990000004', 'Khaled', 'customer');
+  perform pg_temp.new_user('salem', '218990000005', 'Salem', 'customer');
 
   insert into salons (name, owner_id, area_id) values ('صالون الأناقة', pg_temp.fx('ali'), v_area) returning id into v_salon;
   insert into fx values ('salon', v_salon);

@@ -1,0 +1,15 @@
+/// Constants that mirror the SQL functions of the same name.
+abstract final class AppConstants {
+  static const noShowLimit = 3;
+  static const upcomingBookingLimit = 2;
+  static const cancellationWindow = Duration(hours: 2);
+  static const customerNameMaxLength = 60;
+  static const noteMaxLength = 200;
+  static const passwordMinLength = 8;
+  static const slotStep = Duration(minutes: 15);
+  static const timezone = 'Africa/Tripoli';
+  static const phoneCountryCode = '218';
+  static const authEmailDomain = 'app.local';
+
+  static const supportWhatsAppNumber = '218910000000';
+}
