@@ -67,23 +67,48 @@ The Next.js admin cannot use the Dart package. It keeps its own TypeScript types
 - **Instant confirmation**: a booking is confirmed the moment it is created. There is no barber approval step.
 - **Barber cancellations** need a reason: sick (مريض), emergency (طارئ) or other (أخرى) with an optional note. The reason is stored on the booking. Customer cancellations have no reason.
 - **Blocking time**: a barber can block time quickly, e.g. "close the rest of today". This is a day closure, either a whole day or from a given time. Existing bookings inside the blocked window are not cancelled automatically; the barber cancels them with a reason.
-- **No-shows**: barbers mark a booking as no-show. No-shows are counted per customer. After `3` no-shows the customer is blocked from creating bookings until an admin unblocks them. The limit lives in one SQL constant function and one shared Dart constant, never inline.
+- **No-shows**: barbers mark a booking as no-show. No-shows are counted per customer. After `3` no-shows the customer is blocked from creating bookings until an admin unblocks them. The limit lives in one SQL constant function and one shared Dart constant, never inline. Reverting a no-show lowers the count but never lifts the block: only `unblock_customer` (admin) does, and it resets the count to 0.
+- **Pending barbers** (status `pending`) can set up their services, working hours, breaks and profile, but `create_manual_booking`, `close_rest_of_today`, `reopen_today` and `barber_stats` require status `active` and raise `barber_not_active` otherwise.
+- **Browsing without an account**: anyone can read `barber_directory` and call `get_available_slots` so a customer can look around before signing up. Booking needs a session: every other RPC and table requires `authenticated`.
+- **Passwords**: at least `8` characters (`AppConstants.passwordMinLength`, `minimum_password_length` in `config.toml`). Production Auth settings must use the same minimum.
+- **Free-text limits**: manual customer names are at most `60` characters and cancel notes / closure reasons at most `200` (`customer_name_max_length()`, `note_max_length()`, mirrored in `AppConstants`). The RPCs raise `customer_name_too_long` / `cancel_note_too_long`; the columns carry check constraints as well.
 - **Admin visibility**: the admin can see each barber's cancellation count and reasons.
 - **Estimated income** in barber stats is computed only from completed bookings' prices.
 
 ## Database
 
-Migrations live in `supabase/migrations/`, pgTAP tests in `supabase/tests/` (`supabase test db`). Run `supabase db reset` after changing a migration.
+Migrations live in `supabase/migrations/`, pgTAP tests in `supabase/tests/` (`supabase test db`). Run `supabase db reset` after changing a migration. Once a migration has been applied to any remote database, never edit it: add a new migration instead.
 
 - **Tables**: `cities`, `areas`, `profiles`, `salons`, `barbers`, `service_catalog`, `barber_services`, `working_hours`, `breaks`, `day_closures`, `bookings`, `reviews`, `subscription_payments`, `device_tokens`.
 - **`barbers` is separate from `profiles`**: `profile_id` is nullable so admins can list barbers without an account. Bookable = `is_barber_bookable(id)`: status `active`, has an account, `subscription_ends_at` in the future.
-- **Bookings are never written directly from the apps.** RLS allows only reads. Use the RPCs: `create_booking`, `create_manual_booking`, `set_booking_status`, `cancel_booking`, `close_rest_of_today`. Admin-only: `activate_subscription`, `unblock_customer`.
+- **Bookings are never written directly from the apps.** RLS allows only reads. Use the RPCs: `create_booking`, `create_manual_booking`, `set_booking_status`, `cancel_booking`, `close_rest_of_today`, `reopen_today`. Admin-only: `activate_subscription`, `unblock_customer`.
+- **Barber sign-up** calls `register_barber(display_name, salon_id | salon_name + area + address + location)`, which creates or joins the salon and the barber row in one transaction and is safe to retry. The salon owner (the barber who created it) or an admin edits the salon; barbers who joined it cannot. Only active barbers may insert salons directly.
+- **Errors from RPCs are fixed codes** (`customer_blocked`, `booking_limit_reached`, `cancellation_window_passed`, `slot_not_available`, `booking_not_started`, `day_closed`, …) with any number in `DETAIL` as `key=value`. The apps map codes to Arabic messages; never parse the message text.
+- **Attended / no-show** can only be set once the booking has started. Manual bookings must fall inside working hours, outside breaks and outside day closures.
+- **Storage**: bucket `avatars` is public; each user writes only under `<user_id>/`. `photo_url` / `avatar_url` store `avatars/<user_id>/avatar.<ext>?v=<time>`, not a full URL, so every client builds the URL from its own Supabase address with `publicStorageUrl`. Both columns have a check constraint requiring the `avatars/` prefix.
+- **Extensions** (`postgis`, `btree_gist`) are installed in the `extensions` schema, never in `public`, so `spatial_ref_sys` is not exposed through the API. Functions that call PostGIS set `search_path = public, extensions`.
 - **Availability**: `get_available_slots(barber_id, date, duration_min)` returns 15-minute slots in `Africa/Tripoli`, minus working hours, breaks, closures, existing bookings and the past. `create_booking` only accepts a start time that this function returns.
 - **Overlaps** are impossible at the database level: `EXCLUDE USING gist (barber_id WITH =, time_range WITH &&) WHERE (status <> 'cancelled')`.
-- **Constants** are SQL functions: `no_show_limit()` = 3, `upcoming_booking_limit()` = 2, `cancellation_window()` = 2 hours, `app_timezone()`. Mirror them in `packages/shared`, never inline.
-- **Views**: `salon_barbers` (public listing including non-bookable barbers, with `is_bookable`), `salon_hours`, `admin_barber_cancellations`.
+- **Constants** are SQL functions: `no_show_limit()` = 3, `upcoming_booking_limit()` = 2, `cancellation_window()` = 2 hours, `customer_name_max_length()` = 60, `note_max_length()` = 200, `app_timezone()`. Mirror them in `packages/shared`, never inline.
+- **Views**: `salon_barbers` (public listing including non-bookable barbers, with `is_bookable`), `salon_hours`, `admin_barber_cancellations` (admins only, empty for everyone else), `barber_directory` (barber + salon columns and the barber's phone, for the customer app; lists `active` and `suspended` barbers only, so a lapsed subscription keeps a barber visible while pending and rejected barbers never appear; readable by `anon`). Views are read-only for clients.
 - **Security: the service role key never ships to a client.** It must not appear in the Flutter apps or in browser code of the admin panel. Only Edge Functions and server-side code may use it. The apps use the anon/publishable key with RLS; privileged admin actions (password reset, anything bypassing RLS) go through an Edge Function that checks `is_admin()` first.
-- **Auth metadata**: sign-up must pass `full_name`, `phone` (as `218XXXXXXXXX`) and `role` (`customer` or `barber`) in the user metadata; a trigger creates the profile. `admin` can't be set from metadata.
+- **Auth metadata**: sign-up must pass `full_name`, `phone` (as `218XXXXXXXXX`) and `role` (`customer` or `barber`) in the user metadata; a trigger creates the profile. `admin` can't be set from metadata. The trigger rejects any email that is not `218XXXXXXXXX@app.local` with `invalid_auth_email`, and the profile phone always comes from the email.
+- **`seed.sql` is local only**: its first statement raises unless the database's JWT secret is the local default, so it can never run against a real project.
+
+## Running locally
+
+```
+supabase start                      # once per session; Studio at http://127.0.0.1:54323
+supabase db reset                   # applies migrations + supabase/seed.sql
+supabase test db                    # pgTAP suite
+cd apps/barber_app
+flutter run -d <device> --dart-define-from-file=env/local.json     # iOS simulator / Chrome
+flutter run -d <device> --dart-define-from-file=env/android.json   # Android emulator (10.0.2.2)
+```
+
+`env/*.json` holds only the local URL and the publishable key. Seeded accounts (password `password123`): active barber `0912345678`, pending barber `0924107733`, admin `0910000001`, customers `0911002030` / `0925554410`.
+
+`packages/shared` is a path dependency; run `flutter pub get` in each app after changing its `pubspec.yaml`. Dates and prices are formatted by `ArabicFormat` (Arabic words, Latin digits). Constants shared with SQL live in `AppConstants`.
 
 ## Design system
 

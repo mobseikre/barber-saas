@@ -1,5 +1,5 @@
-create extension if not exists btree_gist;
-create extension if not exists postgis;
+create extension if not exists btree_gist with schema extensions;
+create extension if not exists postgis with schema extensions;
 
 create type public.user_role as enum ('customer', 'barber', 'admin');
 create type public.barber_status as enum ('pending', 'active', 'suspended', 'rejected');
@@ -43,7 +43,7 @@ create table public.salons (
   owner_id uuid references public.profiles (id) on delete set null,
   area_id uuid not null references public.areas (id),
   address text,
-  location geography(point, 4326),
+  location extensions.geography(point, 4326),
   photos text[] not null default '{}',
   created_at timestamptz not null default now()
 );
@@ -133,7 +133,7 @@ create table public.bookings (
   check ((source = 'app' and customer_id is not null) or (source = 'manual' and customer_name is not null)),
   check ((status = 'cancelled') = (cancelled_at is not null)),
   check (cancel_reason is null or status = 'cancelled'),
-  exclude using gist (barber_id with =, time_range with &&) where (status <> 'cancelled')
+  exclude using gist (barber_id extensions.gist_uuid_ops with =, time_range with &&) where (status <> 'cancelled')
 );
 create index bookings_customer_idx on public.bookings (customer_id);
 create index bookings_barber_start_idx on public.bookings (barber_id, lower(time_range));

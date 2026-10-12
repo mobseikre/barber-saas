@@ -1,5 +1,11 @@
 begin;
 select plan(16);
+-- Tests use only the reference data; the local dev seed is removed inside this transaction.
+delete from public.bookings;
+delete from public.subscription_payments;
+delete from public.barbers;
+delete from public.salons;
+delete from auth.users;
 create extension if not exists pgtap with schema extensions;
 
 create temp table fx (key text primary key, id uuid not null);
@@ -49,13 +55,13 @@ declare
   v_barber uuid;
   v_barber2 uuid;
 begin
-  perform pg_temp.new_user('admin', '218910000001', 'Admin', 'customer');
+  perform pg_temp.new_user('admin', '218990000001', 'Admin', 'customer');
   update profiles set role = 'admin' where id = pg_temp.fx('admin');
 
-  perform pg_temp.new_user('ali', '218910000002', 'Ali', 'barber');
-  perform pg_temp.new_user('murad', '218910000003', 'Murad', 'barber');
-  perform pg_temp.new_user('khaled', '218910000004', 'Khaled', 'customer');
-  perform pg_temp.new_user('salem', '218910000005', 'Salem', 'customer');
+  perform pg_temp.new_user('ali', '218990000002', 'Ali', 'barber');
+  perform pg_temp.new_user('murad', '218990000003', 'Murad', 'barber');
+  perform pg_temp.new_user('khaled', '218990000004', 'Khaled', 'customer');
+  perform pg_temp.new_user('salem', '218990000005', 'Salem', 'customer');
 
   insert into salons (name, owner_id, area_id) values ('صالون الأناقة', pg_temp.fx('ali'), v_area) returning id into v_salon;
   insert into fx values ('salon', v_salon);
@@ -93,16 +99,16 @@ select is((select status from bookings where customer_id = pg_temp.fx('khaled'))
 select is((select price from bookings where customer_id = pg_temp.fx('khaled')), 25.00, 'price is snapshotted from barber_services');
 
 select throws_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '10:15')) $$,
-  'slot is not available', 'a slot overlapping an existing booking is refused');
+  'slot_not_available', 'a slot overlapping an existing booking is refused');
 select throws_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '13:45')) $$,
-  'slot is not available', 'a slot inside a break is refused');
+  'slot_not_available', 'a slot inside a break is refused');
 select throws_ok($$ select create_booking(pg_temp.fx('barber_pending'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '11:00')) $$,
-  'barber is not bookable', 'a pending barber cannot be booked');
+  'barber_not_bookable', 'a pending barber cannot be booked');
 
 select lives_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('beard'), pg_temp.local_ts(pg_temp.next_saturday(), '11:00')) $$,
   'second upcoming booking is allowed');
 select throws_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '12:00')) $$,
-  'customer already has 2 upcoming bookings', 'third upcoming booking hits the limit');
+  'booking_limit_reached', 'third upcoming booking hits the limit');
 
 select lives_ok($$ select cancel_booking((select id from bookings where customer_id = pg_temp.fx('khaled') and service_id = pg_temp.fx('beard'))) $$,
   'customer cancels a booking more than 2 hours ahead');
@@ -116,12 +122,12 @@ values ('00000000-0000-0000-0000-00000000a001', pg_temp.fx('barber'), pg_temp.fx
         tstzrange(now() + interval '1 hour', now() + interval '90 minutes', '[)'));
 
 select pg_temp.login('salem');
-select throws_like($$ select cancel_booking('00000000-0000-0000-0000-00000000a001') $$,
-  'bookings can only be cancelled up to % before the start', 'customer cannot cancel within 2 hours');
+select throws_ok($$ select cancel_booking('00000000-0000-0000-0000-00000000a001') $$,
+  'cancellation_window_passed', 'customer cannot cancel within 2 hours');
 
 select pg_temp.login('ali');
 select throws_ok($$ select cancel_booking('00000000-0000-0000-0000-00000000a001') $$,
-  'barber cancellations require a reason', 'barber must give a reason');
+  'cancel_reason_required', 'barber must give a reason');
 select lives_ok($$ select cancel_booking('00000000-0000-0000-0000-00000000a001', 'sick', 'flu') $$,
   'barber cancels inside the 2-hour window with a reason');
 select pg_temp.logout();
@@ -136,7 +142,7 @@ select results_eq(
   $$ values (1, 1) $$,
   'admin sees the barber cancellation count by reason');
 select pg_temp.login('ali');
-select is((select count(*) from admin_barber_cancellations)::int, 1, 'barber only sees their own row of the cancellations view');
+select is((select count(*) from admin_barber_cancellations)::int, 0, 'the cancellations view is empty for a barber');
 select pg_temp.logout();
 
 select * from finish();

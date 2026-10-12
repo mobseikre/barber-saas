@@ -1,5 +1,11 @@
 begin;
 select plan(17);
+-- Tests use only the reference data; the local dev seed is removed inside this transaction.
+delete from public.bookings;
+delete from public.subscription_payments;
+delete from public.barbers;
+delete from public.salons;
+delete from auth.users;
 create extension if not exists pgtap with schema extensions;
 
 create temp table fx (key text primary key, id uuid not null);
@@ -49,13 +55,13 @@ declare
   v_barber uuid;
   v_barber2 uuid;
 begin
-  perform pg_temp.new_user('admin', '218910000001', 'Admin', 'customer');
+  perform pg_temp.new_user('admin', '218990000001', 'Admin', 'customer');
   update profiles set role = 'admin' where id = pg_temp.fx('admin');
 
-  perform pg_temp.new_user('ali', '218910000002', 'Ali', 'barber');
-  perform pg_temp.new_user('murad', '218910000003', 'Murad', 'barber');
-  perform pg_temp.new_user('khaled', '218910000004', 'Khaled', 'customer');
-  perform pg_temp.new_user('salem', '218910000005', 'Salem', 'customer');
+  perform pg_temp.new_user('ali', '218990000002', 'Ali', 'barber');
+  perform pg_temp.new_user('murad', '218990000003', 'Murad', 'barber');
+  perform pg_temp.new_user('khaled', '218990000004', 'Khaled', 'customer');
+  perform pg_temp.new_user('salem', '218990000005', 'Salem', 'customer');
 
   insert into salons (name, owner_id, area_id) values ('صالون الأناقة', pg_temp.fx('ali'), v_area) returning id into v_salon;
   insert into fx values ('salon', v_salon);
@@ -105,11 +111,11 @@ select pg_temp.logout();
 select is((select status from bookings where customer_id = pg_temp.fx('khaled')), 'confirmed', 'customer cannot update bookings directly');
 select pg_temp.login('khaled');
 select throws_ok($$ update profiles set role = 'admin' where id = pg_temp.fx('khaled') $$,
-  'only admins can change role or block state', 'customer cannot promote themselves');
+  'admin_only', 'customer cannot promote themselves');
 select throws_ok($$ select activate_subscription(pg_temp.fx('barber_pending'), 1, 50) $$,
-  'only admins can activate subscriptions', 'customer cannot activate subscriptions');
+  'admin_only', 'customer cannot activate subscriptions');
 select throws_ok($$ select unblock_customer(pg_temp.fx('khaled')) $$,
-  'only admins can unblock customers', 'customer cannot unblock');
+  'admin_only', 'customer cannot unblock');
 
 -- barber
 select pg_temp.login('murad');
@@ -117,11 +123,11 @@ select is((select count(*) from barbers)::int, 2, 'barber sees bookable barbers 
 select is((select count(*) from bookings)::int, 1, 'barber sees only bookings for their own chair');
 select is((select customer_id from bookings), pg_temp.fx('salem'), 'and that booking is theirs');
 select throws_ok($$ update barbers set status = 'active' where profile_id = pg_temp.fx('murad') $$,
-  'only admins can change barber status, subscription or VIP', 'barber cannot activate themselves');
+  'admin_only', 'barber cannot activate themselves');
 select lives_ok($$ update barbers set display_name = 'مراد' where profile_id = pg_temp.fx('murad') $$,
   'barber can edit their own display name');
 select throws_ok($$ select activate_subscription(pg_temp.fx('barber_pending'), 1, 50) $$,
-  'only admins can activate subscriptions', 'barber cannot activate subscriptions');
+  'admin_only', 'barber cannot activate subscriptions');
 
 -- admin
 select pg_temp.login('admin');
