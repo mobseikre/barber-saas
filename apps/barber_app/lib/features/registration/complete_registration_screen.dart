@@ -82,10 +82,7 @@ class _CompleteRegistrationScreenState extends ConsumerState<CompleteRegistratio
                     AppButton(label: 'إكمال التسجيل', onPressed: _submit, loading: _loading),
                     const SizedBox(height: AppSpacing.sm),
                     Center(
-                      child: TextButton(
-                        onPressed: () => ref.read(authRepositoryProvider).signOut(),
-                        child: const Text('تسجيل الخروج'),
-                      ),
+                      child: TextButton(onPressed: () => signOut(ref), child: const Text('تسجيل الخروج')),
                     ),
                   ],
                 ),

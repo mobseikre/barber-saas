@@ -27,6 +27,12 @@ class DirectoryRepository {
     return rows.map(BarberListing.fromJson).toList();
   }
 
+  /// The salon of a listed barber, for links into the app; null when the barber is not listed.
+  Future<String?> salonOfBarber(String barberId) async {
+    final row = await _client.from('barber_directory').select('salon_id').eq('id', barberId).maybeSingle();
+    return row?['salon_id'] as String?;
+  }
+
   Future<List<SalonBarber>> salonBarbers(String salonId) async {
     final rows = await _client.from('salon_barbers').select().eq('salon_id', salonId).order('display_name');
     return rows.map(SalonBarber.fromJson).toList();

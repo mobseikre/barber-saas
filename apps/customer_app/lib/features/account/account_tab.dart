@@ -68,11 +68,7 @@ class AccountTab extends ConsumerWidget {
                         onPressed: () => contactSupport(context),
                       ),
                       const SizedBox(height: AppSpacing.md),
-                      AppButton(
-                        label: 'تسجيل الخروج',
-                        variant: AppButtonVariant.text,
-                        onPressed: () => ref.read(authRepositoryProvider).signOut(),
-                      ),
+                      AppButton(label: 'تسجيل الخروج', variant: AppButtonVariant.text, onPressed: () => signOut(ref)),
                     ],
                   )
                 : const SignInPrompt(message: 'سجّل الدخول لتحجز موعدك وتتابع حجوزاتك'),

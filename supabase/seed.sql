@@ -152,3 +152,7 @@ select '30000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-00000000
        tstzrange(pg_temp.today_at('11:00') - (d || ' days')::interval, pg_temp.today_at('11:30') - (d || ' days')::interval, '[)'), 'completed'
 from generate_series(1, 5) d
 join public.service_catalog s on s.code = 'haircut';
+
+-- Push notifications reach the local send-notification function through the API gateway
+select vault.create_secret('http://kong:8000/functions/v1/send-notification', 'notification_function_url');
+select vault.create_secret('local-notification-secret', 'notification_webhook_secret');

@@ -1,3 +1,4 @@
+import 'package:app_links/app_links.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -85,6 +86,28 @@ final myBookingsProvider = FutureProvider<List<MyBooking>>((ref) async {
   if (userId == null) return const [];
   return ref.watch(myBookingsRepositoryProvider).load(userId);
 });
+
+/// App Links and Universal Links that open the app, the one that launched it included.
+final appLinksProvider = Provider<Stream<Uri>>((_) {
+  final links = AppLinks();
+  return launchThenIncomingLinks(links.getInitialLink(), links.uriLinkStream);
+});
+
+/// [launch], then [incoming] without its first repeat of [launch]: on mobile the link stream replays the
+/// launch link to its first listener.
+Stream<Uri> launchThenIncomingLinks(Future<Uri?> launch, Stream<Uri> incoming) async* {
+  final first = await launch;
+  if (first != null) yield first;
+  var replay = first;
+  await for (final uri in incoming) {
+    if (uri == replay) {
+      replay = null;
+      continue;
+    }
+    replay = null;
+    yield uri;
+  }
+}
 
 final offlineStatusProvider = Provider<ValueNotifier<DateTime?>>((_) => offlineStatus);
 

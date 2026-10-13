@@ -4,6 +4,7 @@ import 'package:shared/shared.dart';
 
 import '../../providers.dart';
 import '../location/location_screen.dart';
+import '../qr/qr_screen.dart';
 import '../schedule/working_hours_screen.dart';
 
 /// Subscription status, how to renew it, and the links to the barber's settings.
@@ -102,11 +103,12 @@ class _Content extends ConsumerWidget {
               ),
               const Divider(),
               _MenuRow(
-                icon: Icons.logout_rounded,
-                label: 'تسجيل الخروج',
-                danger: true,
-                onTap: () => ref.read(authRepositoryProvider).signOut(),
+                icon: Icons.qr_code_2_rounded,
+                label: 'رمز QR',
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const QrScreen())),
               ),
+              const Divider(),
+              _MenuRow(icon: Icons.logout_rounded, label: 'تسجيل الخروج', danger: true, onTap: () => signOut(ref)),
             ],
           ),
         ),

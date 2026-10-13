@@ -124,7 +124,7 @@ class PendingActivationScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     TextButton(
-                      onPressed: () => ref.read(authRepositoryProvider).signOut(),
+                      onPressed: () => signOut(ref),
                       style: TextButton.styleFrom(foregroundColor: AppColors.red400),
                       child: const Text('تسجيل الخروج'),
                     ),

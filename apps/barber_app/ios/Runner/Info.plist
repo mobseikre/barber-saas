@@ -61,5 +61,9 @@
 	<string>نستخدم الكاميرا لالتقاط صورتك أو صورة الصالون.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

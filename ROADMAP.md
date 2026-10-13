@@ -8,7 +8,7 @@ Mark each step `[x]` when it is finished.
 | [x] | 2. Database | Supabase schema, RLS, auth (phone → internal email), booking rules | Fable 5.1 (or Opus 5.5 High) |
 | [x] | 3. Barber app | `apps/barber_app` and `packages/shared` | Opus 5.5 for the first screens, then Sonnet 5.5 |
 | [x] | 4. Customer app | `apps/customer_app`. Add a migration granting `anon` select on `salon_barbers` and `salon_hours` so visitors can browse salon pages before signing up | Opus 5.5 for the booking flow, Sonnet 5.5 for the rest |
-| [ ] | 5. Notifications and QR | Push notifications, QR check-in | Opus 5.5 |
+| [x] | 5. Notifications and QR | Push notifications, QR check-in | Opus 5.5 |
 | [ ] | 6. Admin dashboard | `apps/admin` (Next.js), including password reset for barbers and customers. When approving a barber, show the salon location on a map with the option to correct it | Sonnet 5.5 |
 
 ## Polish before launch
@@ -23,6 +23,9 @@ Design token items left over from the Step 3 review. Fix them against `design/de
 - [ ] BookingCard cancel: the design system has no outlined X icon button; use the "إلغاء الحجز" text button (`ActionButton.cancel`)
 - [ ] Customer home: the filter button does nothing yet; wire it up
 - [ ] Customer salon page: show the next free time on each barber tile
+- [ ] Move iOS Firebase from CocoaPods to Swift Package Manager in both apps
+- [ ] Per-customer booking cooldown if book-and-cancel spam appears
+- [ ] Periodic cleanup of `cron.job_run_details`
 
 ## Ongoing
 

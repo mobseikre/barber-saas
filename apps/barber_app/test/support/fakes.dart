@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -135,6 +136,8 @@ Widget testApp({
   AuthRepository? auth,
   Barber? barber,
   Future<Barber?> Function()? barberLoader,
+  PushMessaging? push,
+  DeviceTokenRepository? deviceTokens,
 }) => wrapApp(
   home,
   overrides: [
@@ -149,8 +152,21 @@ Widget testApp({
     areasProvider.overrideWith((_) async => testAreas),
     if (barbers != null) barberRepositoryProvider.overrideWithValue(barbers),
     if (auth != null) authRepositoryProvider.overrideWithValue(auth),
+    if (push != null) pushMessagingProvider.overrideWithValue(push),
+    deviceTokenRepositoryProvider.overrideWithValue(deviceTokens ?? FakeDeviceTokenRepository()),
     ...overrides,
   ],
 );
 
 const haircut = BarberService(barberId: 'b1', serviceId: 's1', price: 25, durationMin: 30, nameAr: 'قص شعر');
+
+class FakeStickerSharer implements StickerSharer {
+  final shared = <(Uint8List, String)>[];
+  Object? error;
+
+  @override
+  Future<void> share(Uint8List pdf, String filename) async {
+    if (error != null) throw error!;
+    shared.add((pdf, filename));
+  }
+}

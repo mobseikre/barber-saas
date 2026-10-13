@@ -85,22 +85,29 @@ The Next.js admin cannot use the Dart package. It keeps its own TypeScript types
 
 Migrations live in `supabase/migrations/`, pgTAP tests in `supabase/tests/` (`supabase test db`). Run `supabase db reset` after changing a migration. Once a migration has been applied to any remote database, never edit it: add a new migration instead.
 
-- **Tables**: `cities`, `areas`, `profiles`, `salons`, `barbers`, `service_catalog`, `barber_services`, `working_hours`, `breaks`, `day_closures`, `bookings`, `reviews`, `subscription_payments`, `device_tokens`.
+- **Tables**: `cities`, `areas`, `profiles`, `salons`, `barbers`, `service_catalog`, `barber_services`, `working_hours`, `breaks`, `day_closures`, `bookings`, `reviews`, `subscription_payments`, `device_tokens`, `notification_outbox`.
 - **`barbers` is separate from `profiles`**: `profile_id` is nullable so admins can list barbers without an account. Bookable = `is_barber_bookable(id)`: status `active`, has an account, `subscription_ends_at` in the future.
 - **Bookings are never written directly from the apps.** RLS allows only reads. Use the RPCs: `create_booking` (with an idempotency key per booking attempt; a retry with the same key returns the booking it already made), `create_manual_booking`, `set_booking_status`, `cancel_booking`, `close_rest_of_today`, `reopen_today`. Admin-only: `activate_subscription`, `unblock_customer`.
 - **Barber sign-up** calls `register_barber(display_name, salon_id | salon_name + area + address + location)`, which creates or joins the salon and the barber row in one transaction and is safe to retry. The salon owner (the barber who created it) or an admin edits the salon; barbers who joined it cannot. Only active barbers may insert salons directly.
 - **Errors from RPCs are fixed codes** (`customer_blocked`, `booking_limit_reached`, `cancellation_window_passed`, `slot_not_available`, `booking_not_started`, `day_closed`, …) with any number in `DETAIL` as `key=value`. The apps map codes to Arabic messages; never parse the message text.
 - **Attended / no-show** can only be set once the booking has started. Manual bookings must fall inside working hours, outside breaks and outside day closures.
 - **Storage**: bucket `avatars` is public, so files are served by URL, but only `authenticated` may list it; each user writes only under `<user_id>/`. `photo_url` / `avatar_url` store `avatars/<user_id>/avatar.<ext>?v=<time>`, not a full URL, so every client builds the URL from its own Supabase address with `publicStorageUrl`. Both columns have a check constraint requiring the `avatars/` prefix.
-- **Extensions** (`postgis`, `btree_gist`) are installed in the `extensions` schema, never in `public`, so `spatial_ref_sys` is not exposed through the API. Functions that call PostGIS set `search_path = public, extensions`.
+- **Extensions** (`postgis`, `btree_gist`) are installed in the `extensions` schema, never in `public`, so `spatial_ref_sys` is not exposed through the API. Functions that call PostGIS set `search_path = public, extensions`. `pg_net` and `pg_cron` keep their own `net` and `cron` schemas.
 - **Availability**: `get_available_slots(barber_id, date, duration_min)` returns 15-minute slots in `Africa/Tripoli`, minus working hours, breaks, closures, existing bookings and the past. `create_booking` only accepts a start time that this function returns.
 - **Overlaps** are impossible at the database level: `EXCLUDE USING gist (barber_id WITH =, time_range WITH &&) WHERE (status <> 'cancelled')`.
-- **Constants** are SQL functions: `no_show_limit()` = 3, `upcoming_booking_limit()` = 2, `cancellation_window()` = 2 hours, `customer_name_max_length()` = 60, `full_name_max_length()` = 60, `note_max_length()` = 200, `review_comment_max_length()` = 300, `review_max_tags()` = 5, `review_tags()`, `app_timezone()`. Mirror them in `packages/shared`, never inline.
+- **Constants** are SQL functions: `no_show_limit()` = 3, `upcoming_booking_limit()` = 2, `cancellation_window()` = 2 hours, `customer_name_max_length()` = 60, `full_name_max_length()` = 60, `note_max_length()` = 200, `review_comment_max_length()` = 300, `review_max_tags()` = 5, `review_tags()`, `app_timezone()`, `reminder_lead_time()` = 1 hour. Mirror them in `packages/shared`, never inline. Server-only constants need no mirror: `device_token_limit()` = 5, `notification_max_attempts()` = 5, `notification_retry_delay(attempts)`.
 - **Views**: `salon_barbers` (public listing of `active` and `suspended` barbers with `is_bookable`, so a lapsed barber shows as not bookable while a pending one is not listed), `salon_hours`, `admin_barber_cancellations` (admins only, empty for everyone else), `my_booking_barbers` (the barber and salon of each of the signed-in customer's bookings, whatever the barber's status, so past bookings keep their names and directions; `authenticated` only), `barber_directory` (barber + salon columns and the barber's phone, for the customer app; lists `active` and `suspended` barbers only, so a lapsed subscription keeps a barber visible while pending and rejected barbers never appear; readable by `anon`). Views are read-only for clients.
 - **Security: the service role key never ships to a client.** It must not appear in the Flutter apps or in browser code of the admin panel. Only Edge Functions and server-side code may use it. The apps use the anon/publishable key with RLS; privileged admin actions (password reset, anything bypassing RLS) go through an Edge Function that checks `is_admin()` first.
 - **Production keys live only in environment variables or Supabase secrets**, never in any committed file. That covers the production URL and publishable key, the service role key, the JWT secret, database passwords and any third-party token. This repository is public. Committed files may hold only the local Supabase defaults (`env/*.json`, `seed.sql`).
 - **Auth metadata**: sign-up must pass `full_name`, `phone` (as `218XXXXXXXXX`) and `role` (`customer` or `barber`) in the user metadata; a trigger creates the profile. `admin` can't be set from metadata. The trigger rejects any email that is not `218XXXXXXXXX@app.local` with `invalid_auth_email` and a `full_name` over `full_name_max_length()` with `full_name_too_long`; the profile phone always comes from the email. A second trigger on `auth.users` rejects any change of the email with `email_change_not_allowed`.
 - **`seed.sql` is local only**: its first statement raises unless the database's JWT secret is the local default, so it can never run against a real project.
+- **Push notifications**: the `bookings_notify` trigger and `send_booking_reminders()` (pg_cron job `booking-reminders`, every minute) insert rows into `notification_outbox`; they never call the network. A new app booking notifies the barber; a cancellation notifies the other side (both sides when an admin cancels), with the reason and note when the barber cancels; the reminder goes to the customer `reminder_lead_time()` before the start, only for bookings made earlier than that. Nothing is queued for a recipient without a `device_tokens` row.
+- **Outbox**: `deliver_notifications()` (pg_cron job `notification-outbox`, every 10 seconds) posts pending rows through pg_net to the `send-notification` Edge Function with the Vault secrets `notification_function_url` and `notification_webhook_secret` (`seed.sql` sets the local ones), then reads each answer from `net._http_response` on a later run. Only a 2xx marks the row `sent` and sets `sent_at`, and for a reminder `bookings.reminder_sent_at`. Any other answer, a timeout or no answer within 5 minutes puts the row back after `notification_retry_delay` (1, 2, 4, 8 minutes); after `notification_max_attempts()` = 5 it is `failed` for good. A reminder has one outbox row per booking (`reminder_for` is unique), so it is never sent twice. Rows about a booking that has started, and reminders for a booking no longer confirmed, become `expired` instead of going out late. While the Vault secrets are missing, rows wait as `pending`. Clients have no access to the outbox.
+- **Device tokens**: clients write tokens only through `register_device_token(token, platform)`, which moves a token to whoever signed in on the device last and keeps at most `device_token_limit()` = 5 per user, deleting the least recently registered. Clients delete their own row on sign-out.
+- **No TRUNCATE for clients**: TRUNCATE ignores RLS, so `anon` and `authenticated` hold it on no table in `public`, including tables created later (default privileges).
+- **`send-notification`** runs with `verify_jwt = false` and accepts only `Authorization: Bearer <NOTIFICATION_WEBHOOK_SECRET>`. It writes the Arabic text (Tripoli time, Latin digits), sends with the FCM HTTP v1 API using the service account in `FCM_SERVICE_ACCOUNT`, and deletes tokens FCM reports as `UNREGISTERED`, `SENDER_ID_MISMATCH` or `INVALID_ARGUMENT`. A missing or malformed service account answers 503, and a request where no device received the message answers 502, so the outbox retries both. Its secrets are set with `supabase secrets set`, never committed; locally they come from the git-ignored `supabase/functions/.env` (copy `.env.example`). Tests: `deno test --allow-net` in `supabase/functions/send-notification` (a fake FCM server checks the signed JWT and the message).
+- **Production notification secrets**: `NOTIFICATION_WEBHOOK_SECRET` (and the matching Vault `notification_webhook_secret`) must be at least 32 random bytes, e.g. `openssl rand -base64 32`, never a word or the local default. The function URL lives only in Vault: it never appears in the Flutter apps, the admin panel's browser code or any committed file.
+- **After every deploy, verify the Vault URL**: `notification_function_url` must be `https://<project ref>.supabase.co/functions/v1/send-notification` of the project just deployed. Check it with `select decrypted_secret from vault.decrypted_secrets where name = 'notification_function_url'`, then make a test booking and confirm its outbox row reaches `sent`. A wrong URL fails silently: rows retry and end as `failed`.
 
 ## Running locally
 
@@ -108,12 +115,21 @@ Migrations live in `supabase/migrations/`, pgTAP tests in `supabase/tests/` (`su
 supabase start                      # once per session; Studio at http://127.0.0.1:54323
 supabase db reset                   # applies migrations + supabase/seed.sql
 supabase test db                    # pgTAP suite
+cp supabase/functions/.env.example supabase/functions/.env   # once, then restart the stack
 cd apps/barber_app
 flutter run -d <device> --dart-define-from-file=env/local.json     # iOS simulator / Chrome
 flutter run -d <device> --dart-define-from-file=env/android.json   # Android emulator (10.0.2.2)
 ```
 
 `env/*.json` holds only the local URL and the publishable key. Seeded accounts (password `password123`): active barber `0912345678`, pending barber `0924107733`, admin `0910000001`, customers `0911002030` / `0925554410`, blocked customer `0941207788`. More active barbers (`0913330001`–`0913330005`) have salons with locations in Tripoli and Benghazi.
+
+### Firebase files
+
+`google-services.json` (in `apps/<app>/android/app/`) and `GoogleService-Info.plist` (in `apps/<app>/ios/Runner/`) come from the Firebase console and are git-ignored. **Never commit them.** Without them both apps build and run with push off: Gradle applies the Google Services plugin only when the JSON exists, and an Xcode build phase copies the plist only when it is there. Push code lives in `packages/shared` (`initPush`, `PushTokens`). Always sign out through `signOut(ref)`, which deletes the device token while the session is still valid.
+
+### Barber links
+
+`https://<AppConstants.appLinkHost>/b/<barber id>` (`barberLink`, `barberIdFromLink`) opens the customer app on the barber's salon page; the barber app shows it as a QR code. The host is the placeholder `hallaqi.example.com` in three places that change together: `AppConstants.appLinkHost`, the customer app's Android intent filter and its iOS associated domains entitlement. The real domain must serve `/.well-known/assetlinks.json` and `/.well-known/apple-app-site-association`. `initSupabase` passes `detectSessionInUri: false`, so no link, even one carrying `access_token` or `code`, can change the session. On mobile the link stream replays the launch link, so `launchThenIncomingLinks` drops that first repeat and a cold start opens the salon page once.
 
 `packages/shared` is a path dependency; run `flutter pub get` in each app after changing its `pubspec.yaml`. Dates and prices are formatted by `ArabicFormat` (Arabic words, Latin digits). Constants shared with SQL live in `AppConstants`.
 
@@ -270,6 +286,7 @@ PNG renders are in `design/screens/<part>/`.
 | 6 | Today's bookings: stats, attended / no-show, manual booking | حلاق ٦ — حجوزات اليوم | `barber/06-today-bookings.png` |
 | 7 | Stats: daily and monthly customers, estimated income, top services | حلاق ٧ — الإحصائيات | `barber/07-stats.png` |
 | 8 | Subscription / account: plan, expiry, admin contact, logout | حلاق ٨ — الاشتراك | `barber/08-subscription.png` |
+| 9 | QR code (not in the design, see below) | رمز QR | — |
 
 ### Customer app (`apps/customer_app`)
 
@@ -322,6 +339,10 @@ The home screen lists barbers, not salons, even though the design board is title
 ### Light theme only
 
 Both Flutter apps ship a light theme only. The design has no dark variant, so there is no dark `ThemeData` and no `prefers-color-scheme` handling.
+
+### QR code screen and sticker
+
+Opened from the account tab. A `PageTitle` with the back button, an `AppCard` with the QR of the barber link in `blue900`, the barber name (H2) and salon (caption), and one primary button that shares an A5 PDF sticker. The sticker has the dark blue header with «حلّاقي» and «احجز موعدك», the name, salon and QR, a scan hint and the barber pole stripe at the bottom. Its text is laid out by Flutter and embedded as 360 dpi images, because the `pdf` package cannot shape Arabic pairs such as «ري» correctly.
 
 ### Account tabs and undesigned screens
 

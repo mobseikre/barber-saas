@@ -15,5 +15,6 @@ Future<void> main() async {
   supabase.auth.onAuthStateChange.listen((state) {
     if (state.event == AuthChangeEvent.signedOut) cache.clearUserEntries();
   });
-  runApp(const ProviderScope(child: CustomerApp()));
+  final push = await initPush();
+  runApp(ProviderScope(overrides: [pushMessagingProvider.overrideWithValue(push)], child: const CustomerApp()));
 }
