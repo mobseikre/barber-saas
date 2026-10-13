@@ -8,6 +8,7 @@ String authErrorMessage(Object error) {
       'invalid_credentials' => 'رقم الهاتف أو كلمة المرور غير صحيحة',
       'user_already_exists' || 'email_exists' => 'هذا الرقم مسجّل مسبقاً، سجّل الدخول بدلاً من ذلك',
       'weak_password' => 'كلمة المرور ضعيفة',
+      'same_password' => 'كلمة المرور الجديدة يجب أن تختلف عن الحالية',
       'over_request_rate_limit' => 'محاولات كثيرة، حاول بعد قليل',
       _ => genericErrorMessage,
     };
@@ -15,6 +16,7 @@ String authErrorMessage(Object error) {
   if (error is PostgrestException) {
     return switch (error.message) {
       'not_a_barber' => 'هذا الرقم مسجّل كزبون، استخدم تطبيق الزبائن',
+      'not_a_customer' => 'هذا الرقم مسجّل كحلاق، استخدم تطبيق الحلاقين',
       'display_name_required' => 'أدخل اسمك الكامل',
       'salon_not_found' => 'الصالون المختار غير موجود',
       _ => bookingErrorMessage(error),

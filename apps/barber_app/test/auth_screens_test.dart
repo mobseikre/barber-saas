@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared/shared.dart';
+import 'package:test_support/test_support.dart';
 
 import 'package:barber_app/features/auth/sign_up_screen.dart';
 
@@ -15,7 +16,7 @@ void main() {
   late FakePhotoService photos;
 
   Future<void> pumpSignUp(WidgetTester tester) async {
-    auth = FakeAuthRepo(userId: null);
+    auth = FakeAuthRepo(newUserId: 'u1');
     barbers = FakeBarberRepo();
     photos = FakePhotoService();
     await pumpPhone(tester, testApp(home: const Text('HOME'), barbers: barbers, auth: auth, photos: photos));
@@ -54,7 +55,7 @@ void main() {
 
     await fillAndSubmit(tester);
 
-    expect(auth.calls, ['signUp:218912345678:barber']);
+    expect(auth.calls, ['signUp:218912345678:محمد السويحلي:barber']);
     expect(barbers.registrations.single['name'], 'محمد السويحلي');
     expect(find.text('HOME'), findsOneWidget);
   });
@@ -96,7 +97,9 @@ void main() {
     barbers.registerError = null;
     await submit(tester);
 
-    expect(auth.calls, ['signUp:218912345678:barber'], reason: 'the account already exists, so no second sign-up');
+    expect(auth.calls, [
+      'signUp:218912345678:محمد السويحلي:barber',
+    ], reason: 'the account already exists, so no second sign-up');
     expect(barbers.registrations, hasLength(2));
     expect(find.text('HOME'), findsOneWidget);
   });

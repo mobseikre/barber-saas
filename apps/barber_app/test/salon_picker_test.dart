@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared/shared.dart';
+import 'package:test_support/test_support.dart';
 
 import 'package:barber_app/features/auth/salon_picker.dart';
-import 'package:barber_app/providers.dart';
 
 import 'support/fakes.dart';
 

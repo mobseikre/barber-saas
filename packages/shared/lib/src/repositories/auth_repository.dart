@@ -32,6 +32,14 @@ class AuthRepository {
 
   Future<void> signOut() => _client.auth.signOut();
 
+  /// Checks [currentPassword] by signing in again, then sets [newPassword].
+  Future<void> changePassword({required String currentPassword, required String newPassword}) async {
+    final email = _client.auth.currentUser?.email;
+    if (email == null) throw const AuthException('not_signed_in', code: 'not_authenticated');
+    await _client.auth.signInWithPassword(email: email, password: currentPassword);
+    await _client.auth.updateUser(UserAttributes(password: newPassword));
+  }
+
   Future<Profile?> currentProfile() async {
     final id = currentUserId;
     if (id == null) return null;

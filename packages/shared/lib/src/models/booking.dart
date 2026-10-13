@@ -51,7 +51,7 @@ class Booking {
   final DateTime createdAt;
 
   bool get isManual => source == BookingSource.manual;
-  bool get isUpcoming => status == BookingStatus.confirmed && startsAt.isAfter(AppTime.now());
+  bool get isUpcoming => status == BookingStatus.confirmed && endsAt.isAfter(AppTime.now());
   bool get isOpen => status == BookingStatus.confirmed;
   bool get hasStarted => !startsAt.isAfter(AppTime.now());
 

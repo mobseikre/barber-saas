@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared/shared.dart';
 
-import '../../providers.dart';
 import '../registration/registration_details.dart';
 import '../registration/registration_draft.dart';
 
@@ -88,6 +87,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                         required: true,
                         controller: _name,
                         hint: 'مثال: محمد السويحلي',
+                        maxLength: AppConstants.fullNameMaxLength,
                         textInputAction: TextInputAction.next,
                         autofillHints: const [AutofillHints.name],
                         validator: (v) => (v == null || v.trim().length < 2) ? 'أدخل اسمك الكامل' : null,

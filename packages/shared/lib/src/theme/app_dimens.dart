@@ -52,4 +52,9 @@ abstract final class AppSizes {
   static const heroCircle = 132.0;
   static const heroIcon = 56.0;
   static const ring = 2.0;
+  static const navPillWidth = 48.0;
+  static const navPillHeight = 30.0;
+  static const salonPhoto = 220.0;
+  static const dateTileWidth = 56.0;
+  static const dateTileHeight = 64.0;
 }

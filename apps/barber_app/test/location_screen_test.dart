@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared/shared.dart';
+import 'package:test_support/test_support.dart';
 
 import 'package:barber_app/features/location/location_map.dart';
 import 'package:barber_app/features/location/location_screen.dart';
@@ -30,7 +31,7 @@ void main() {
 
   setUp(() {
     repo = FakeBarberRepo();
-    location = FakeLocationService();
+    location = FakeLocationService(barberSpot);
   });
 
   testWidgets('the owner sees the saved location and can save a change', (tester) async {

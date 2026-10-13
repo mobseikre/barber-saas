@@ -5,6 +5,10 @@ abstract final class AppConstants {
   static const cancellationWindow = Duration(hours: 2);
   static const customerNameMaxLength = 60;
   static const noteMaxLength = 200;
+  static const reviewCommentMaxLength = 300;
+  static const reviewMaxTags = 5;
+  static const reviewTags = ['جودة القص', 'النظافة', 'الالتزام بالموعد', 'حسن التعامل', 'السعر مناسب'];
+  static const fullNameMaxLength = 60;
   static const passwordMinLength = 8;
   static const slotStep = Duration(minutes: 15);
   static const timezone = 'Africa/Tripoli';

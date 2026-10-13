@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
@@ -13,6 +14,7 @@ class AppHeader extends StatelessWidget {
     this.leading,
     this.trailing,
     this.bottom,
+    this.top,
     this.centered = false,
     this.subtitleBelow = false,
   });
@@ -22,6 +24,9 @@ class AppHeader extends StatelessWidget {
   final Widget? leading;
   final Widget? trailing;
   final Widget? bottom;
+
+  /// Shown above the title, e.g. the large logo of the customer sign-up screen.
+  final Widget? top;
   final bool centered;
 
   /// Puts the subtitle under the title, as on the sign-in and sign-up screens.
@@ -30,34 +35,76 @@ class AppHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.paddingOf(context).top;
-    final subtitleText = Text(subtitle ?? '', style: AppText.caption.copyWith(color: AppColors.onDarkMuted));
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(AppSpacing.screen, topInset + AppSpacing.lg, AppSpacing.screen, AppSpacing.xxl),
-      decoration: const BoxDecoration(
-        color: AppColors.blue900,
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(AppRadius.header)),
-      ),
-      child: Column(
-        crossAxisAlignment: centered ? CrossAxisAlignment.center : CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              if (leading != null) ...[leading!, const SizedBox(width: AppSpacing.md)],
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: centered ? CrossAxisAlignment.center : CrossAxisAlignment.start,
-                  children: [
-                    if (subtitle != null && !subtitleBelow) subtitleText,
-                    Text(title, style: AppText.h1.copyWith(color: AppColors.surface)),
-                    if (subtitle != null && subtitleBelow) subtitleText,
-                  ],
+    final subtitleText = Text(
+      subtitle ?? '',
+      style: AppText.caption.copyWith(color: AppColors.onDarkMuted),
+      textAlign: centered ? TextAlign.center : null,
+    );
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.fromLTRB(AppSpacing.screen, topInset + AppSpacing.lg, AppSpacing.screen, AppSpacing.xxl),
+        decoration: const BoxDecoration(
+          color: AppColors.blue900,
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(AppRadius.header)),
+        ),
+        child: Column(
+          crossAxisAlignment: centered ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+          children: [
+            if (top != null) ...[top!, const SizedBox(height: AppSpacing.lg)],
+            Row(
+              children: [
+                if (leading != null) ...[leading!, const SizedBox(width: AppSpacing.md)],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: centered ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+                    children: [
+                      if (subtitle != null && !subtitleBelow) subtitleText,
+                      Text(
+                        title,
+                        style: AppText.h1.copyWith(color: AppColors.surface),
+                        textAlign: centered ? TextAlign.center : null,
+                      ),
+                      if (subtitle != null && subtitleBelow) subtitleText,
+                    ],
+                  ),
                 ),
-              ),
-              ?trailing,
-            ],
+                ?trailing,
+              ],
+            ),
+            if (bottom != null) ...[const SizedBox(height: AppSpacing.xl), bottom!],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Keeps scrolled content out from under the status bar: a strip the colour of the screen's top,
+/// with status bar icons that stay readable on it.
+class StatusBarScrim extends StatelessWidget {
+  const StatusBarScrim({super.key, required this.child, this.dark = false});
+
+  final Widget child;
+
+  /// A dark blue top (header or photo) instead of the light app background.
+  final bool dark;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: Stack(
+        children: [
+          child,
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: MediaQuery.paddingOf(context).top,
+            child: IgnorePointer(child: ColoredBox(color: dark ? AppColors.blue900 : AppColors.bg)),
           ),
-          if (bottom != null) ...[const SizedBox(height: AppSpacing.xl), bottom!],
         ],
       ),
     );

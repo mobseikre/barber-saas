@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared/shared.dart';
 
-import '../../providers.dart';
 import 'salon_location_controller.dart';
 
 /// Address, city and area of a salon. With [readOnly] it shows them as plain text.

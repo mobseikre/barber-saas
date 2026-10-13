@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared/shared.dart';
+import 'package:test_support/test_support.dart';
 
 import 'package:barber_app/features/auth/auth_gate.dart';
 import 'package:barber_app/features/auth/pending_activation_screen.dart';

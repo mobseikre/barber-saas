@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../constants.dart';
+import '../format/arabic_format.dart';
 
 const genericErrorMessage = 'حدث خطأ، تأكد من الاتصال بالإنترنت وحاول مرة أخرى';
 
@@ -25,6 +26,15 @@ const _codes = {
   'not_a_barber': 'هذا الإجراء للحلاقين فقط',
   'not_a_customer': 'هذا الإجراء للزبائن فقط',
   'admin_only': 'هذا الإجراء للإدارة فقط',
+  'idempotency_key_required': genericErrorMessage,
+  'idempotency_key_reused': 'تغيّر اختيارك أثناء إرسال الحجز، أكّد الحجز مرة أخرى',
+};
+
+const _reviewConstraints = {
+  'reviews_comment_length': 'التعليق طويل جداً، الحد ${AppConstants.reviewCommentMaxLength} حرف',
+  'reviews_tags_size': 'اختر ${AppConstants.reviewMaxTags} وسوم على الأكثر',
+  'reviews_tags_allowed': 'أحد الوسوم المختارة غير متاح، حدّث الصفحة وحاول مرة أخرى',
+  'reviews_rating_check': 'اختر تقييماً من نجمة إلى 5 نجوم',
 };
 
 String bookingErrorMessage(Object error) {
@@ -34,11 +44,23 @@ String bookingErrorMessage(Object error) {
     '42501' => 'ليست لديك صلاحية لهذا الإجراء',
     '23505' => 'هذا السجل موجود مسبقاً',
     _ => switch (error.message) {
-      'customer_blocked' => 'تم إيقاف الحجز لحسابك بعد ${AppConstants.noShowLimit} مرات عدم حضور. تواصل مع الإدارة',
-      'booking_limit_reached' => 'لديك ${AppConstants.upcomingBookingLimit} حجوزات قادمة، وهو الحد الأقصى',
+      'customer_blocked' => 'تم إيقاف الحجز لحسابك بعد ${AppConstants.noShowLimit} مرات عدم حضور. تواصل مع الدعم',
+      'booking_limit_reached' =>
+        'وصلت إلى الحد الأقصى للحجوزات القادمة (${AppConstants.upcomingBookingLimit})، ألغِ حجزاً لتحجز موعداً جديداً',
       'cancellation_window_passed' =>
-        'لا يمكن الإلغاء قبل أقل من ${AppConstants.cancellationWindow.inHours} ساعة من الموعد',
+        'لا يمكن الإلغاء قبل أقل من ${ArabicFormat.hours(AppConstants.cancellationWindow.inHours)} من الموعد',
       final code => _codes[code] ?? genericErrorMessage,
     },
+  };
+}
+
+String reviewErrorMessage(Object error) {
+  if (error is! PostgrestException) return genericErrorMessage;
+  return switch (error.code) {
+    '23505' => 'قيّمت هذا الحجز مسبقاً',
+    '23514' =>
+      _reviewConstraints.entries.where((c) => error.message.contains('"${c.key}"')).firstOrNull?.value ??
+          genericErrorMessage,
+    _ => bookingErrorMessage(error),
   };
 }

@@ -35,3 +35,12 @@ abstract final class AppTime {
     return at(t, t.hour, t.minute - t.minute % 15);
   }
 }
+
+/// The calendar date of [instant] in the app time zone, as `2026-10-08`.
+String dbDate(DateTime instant) {
+  final d = AppTime.from(instant);
+  return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+}
+
+/// The Postgres weekday of [day] (0 = Sunday … 6 = Saturday).
+int dbWeekday(DateTime day) => day.weekday % 7;

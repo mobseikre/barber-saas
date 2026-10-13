@@ -1,0 +1,21 @@
+name: test_support
+description: Test helpers and fakes shared by the Hallaqi apps' widget tests.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.10.0
+  flutter: ">=3.38.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_test:
+    sdk: flutter
+  flutter_riverpod: ^3.3.2
+  latlong2: ^0.10.1
+  shared:
+    path: ../shared
+
+dev_dependencies:
+  flutter_lints: ^6.0.0

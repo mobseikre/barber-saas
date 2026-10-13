@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../format/app_time.dart';
 import '../models/booking.dart';
+import '../models/directory.dart';
 import '../models/enums.dart';
 import '../models/schedule.dart';
 
@@ -24,14 +25,43 @@ class BookingRepository {
     return bookings;
   }
 
+  /// Free start times on [day] in the app time zone for a service of [durationMin] minutes.
+  Future<List<TimeSlot>> availableSlots({
+    required String barberId,
+    required DateTime day,
+    required int durationMin,
+  }) async {
+    final rows =
+        await _client.rpc(
+              'get_available_slots',
+              params: {'p_barber_id': barberId, 'p_date': dbDate(day), 'p_duration_min': durationMin},
+            )
+            as List;
+    return [
+      for (final r in rows.cast<Map<String, dynamic>>())
+        TimeSlot(
+          startsAt: AppTime.from(DateTime.parse(r['starts_at'] as String)),
+          endsAt: AppTime.from(DateTime.parse(r['ends_at'] as String)),
+        ),
+    ];
+  }
+
+  /// Books for the signed-in customer. Retrying with the same [idempotencyKey] returns the booking
+  /// the first call created instead of booking twice.
   Future<Booking> createBooking({
     required String barberId,
     required String serviceId,
     required DateTime startsAt,
+    required String idempotencyKey,
   }) async {
     final row = await _client.rpc(
       'create_booking',
-      params: {'p_barber_id': barberId, 'p_service_id': serviceId, 'p_starts_at': startsAt.toUtc().toIso8601String()},
+      params: {
+        'p_barber_id': barberId,
+        'p_service_id': serviceId,
+        'p_starts_at': startsAt.toUtc().toIso8601String(),
+        'p_idempotency_key': idempotencyKey,
+      },
     );
     return Booking.fromJson(row as Map<String, dynamic>);
   }
@@ -72,9 +102,12 @@ class BookingRepository {
   }
 
   Future<DayClosure?> closureOn({required String barberId, required DateTime day}) async {
-    final d = AppTime.from(day);
-    final date = '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-    final row = await _client.from('day_closures').select().eq('barber_id', barberId).eq('date', date).maybeSingle();
+    final row = await _client
+        .from('day_closures')
+        .select()
+        .eq('barber_id', barberId)
+        .eq('date', dbDate(day))
+        .maybeSingle();
     return row == null ? null : DayClosure.fromJson(row);
   }
 

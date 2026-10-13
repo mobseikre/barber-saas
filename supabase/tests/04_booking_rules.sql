@@ -93,26 +93,26 @@ select pg_temp.setup();
 
 select pg_temp.login('khaled');
 
-select lives_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '10:00')) $$,
+select lives_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '10:00'), gen_random_uuid()) $$,
   'customer books an available slot');
 select is((select status from bookings where customer_id = pg_temp.fx('khaled')), 'confirmed', 'booking is confirmed instantly');
 select is((select price from bookings where customer_id = pg_temp.fx('khaled')), 25.00, 'price is snapshotted from barber_services');
 
-select throws_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '10:15')) $$,
+select throws_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '10:15'), gen_random_uuid()) $$,
   'slot_not_available', 'a slot overlapping an existing booking is refused');
-select throws_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '13:45')) $$,
+select throws_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '13:45'), gen_random_uuid()) $$,
   'slot_not_available', 'a slot inside a break is refused');
-select throws_ok($$ select create_booking(pg_temp.fx('barber_pending'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '11:00')) $$,
+select throws_ok($$ select create_booking(pg_temp.fx('barber_pending'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '11:00'), gen_random_uuid()) $$,
   'barber_not_bookable', 'a pending barber cannot be booked');
 
-select lives_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('beard'), pg_temp.local_ts(pg_temp.next_saturday(), '11:00')) $$,
+select lives_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('beard'), pg_temp.local_ts(pg_temp.next_saturday(), '11:00'), gen_random_uuid()) $$,
   'second upcoming booking is allowed');
-select throws_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '12:00')) $$,
+select throws_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '12:00'), gen_random_uuid()) $$,
   'booking_limit_reached', 'third upcoming booking hits the limit');
 
 select lives_ok($$ select cancel_booking((select id from bookings where customer_id = pg_temp.fx('khaled') and service_id = pg_temp.fx('beard'))) $$,
   'customer cancels a booking more than 2 hours ahead');
-select lives_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '12:00')) $$,
+select lives_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '12:00'), gen_random_uuid()) $$,
   'cancelling frees a place under the limit');
 
 -- a booking starting in one hour, inserted directly to bypass the slot grid

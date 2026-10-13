@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared/shared.dart';
 
 void main() {
@@ -11,10 +12,41 @@ void main() {
     expect(ArabicFormat.days(30), '30 يوماً');
   });
 
+  test('ArabicFormat has the short date parts the booking cards use', () async {
+    await initializeDateFormatting('ar');
+    final day = DateTime(2026, 10, 1);
+
+    expect(ArabicFormat.dayMonth(day), '1 أكتوبر');
+    expect(ArabicFormat.month(day), 'أكتوبر');
+    expect(ArabicFormat.weekday(day), 'الخميس');
+  });
+
+  test('directionsUri points Google Maps at the coordinates', () {
+    expect(
+      directionsUri(32.875, 13.115).toString(),
+      'https://www.google.com/maps/dir/?api=1&destination=32.875%2C13.115',
+    );
+  });
+
   test('ArabicFormat.number groups thousands with Latin digits', () {
     expect(ArabicFormat.number(340), '340');
     expect(ArabicFormat.number(6450), '6,450');
     expect(ArabicFormat.number(12.5), '12.5');
+  });
+
+  test('ArabicFormat.hours uses the right Arabic number form', () {
+    expect(
+      [
+        for (final n in [1, 2, 3, 10, 12]) ArabicFormat.hours(n),
+      ],
+      ['ساعة', 'ساعتين', '3 ساعات', '10 ساعات', '12 ساعة'],
+    );
+  });
+
+  test('ArabicFormat.distance shows kilometres, with one decimal below 10 km', () {
+    expect(ArabicFormat.distance(800), '0.8 كم');
+    expect(ArabicFormat.distance(2149), '2.1 كم');
+    expect(ArabicFormat.distance(12400), '12 كم');
   });
 
   test('BarberStats reads the barber_stats result', () {
@@ -49,5 +81,10 @@ void main() {
 
     expect(stats.topServices, isEmpty);
     expect(stats.monthIncome, 0.0);
+  });
+
+  test('ArabicFormat.firstName takes the first word of a full name', () {
+    expect(ArabicFormat.firstName('  علي القماطي '), 'علي');
+    expect(ArabicFormat.firstName('محمد'), 'محمد');
   });
 }

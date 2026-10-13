@@ -8,7 +8,6 @@ import 'time_chip.dart';
 
 const _weekOrder = [6, 0, 1, 2, 3, 4, 5];
 const _friday = 5;
-const _dayNames = {6: 'السبت', 0: 'الأحد', 1: 'الاثنين', 2: 'الثلاثاء', 3: 'الأربعاء', 4: 'الخميس', 5: 'الجمعة'};
 const _defaultOpen = TimeOfDay(hour: 10, minute: 0);
 const _defaultClose = TimeOfDay(hour: 22, minute: 0);
 
@@ -189,14 +188,14 @@ class _DayCard extends StatelessWidget {
               AppSwitch(
                 key: ValueKey('open-${day.weekday}'),
                 value: day.open,
-                semanticLabel: _dayNames[day.weekday],
+                semanticLabel: ArabicFormat.weekdays[day.weekday],
                 onChanged: (v) {
                   day.open = v;
                   onChanged();
                 },
               ),
               const SizedBox(width: AppSpacing.md),
-              Expanded(child: Text(_dayNames[day.weekday]!, style: muted)),
+              Expanded(child: Text(ArabicFormat.weekdays[day.weekday]!, style: muted)),
               if (day.open) ...[
                 TimeChip(
                   key: ValueKey('opens-${day.weekday}'),
