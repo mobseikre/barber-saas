@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared/shared.dart';
+import 'package:test_support/test_support.dart';
 
 import 'package:barber_app/features/account/account_tab.dart';
 
@@ -19,7 +20,7 @@ void main() {
   setUp(() {
     AppTime.clock = () => now;
     repo = FakeBarberRepo();
-    auth = FakeAuthRepo();
+    auth = FakeAuthRepo(userId: 'u1', newUserId: 'u1');
   });
   tearDown(() => AppTime.clock = DateTime.now);
 

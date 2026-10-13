@@ -3,14 +3,12 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:shared/shared.dart';
+import 'package:test_support/test_support.dart';
 
 import 'package:barber_app/features/bookings/today_bookings_provider.dart';
 import 'package:barber_app/providers.dart';
-import 'package:barber_app/services/location_service.dart';
 import 'package:barber_app/services/photo_service.dart';
 
 Booking booking({
@@ -97,14 +95,6 @@ class FakeTodayBookings extends TodayBookings {
   }
 }
 
-/// Lays the widget out at the design's phone size (390 × 844).
-Future<void> pumpPhone(WidgetTester tester, Widget app) async {
-  tester.view.physicalSize = const Size(390, 844);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
-  await tester.pumpWidget(app);
-}
-
 final tripoliCity = City(id: 'city-1', name: 'طرابلس');
 final testAreas = [
   Area(id: 'area-1', cityId: 'city-1', name: 'حي الأندلس'),
@@ -120,19 +110,6 @@ class BlankTileProvider extends TileProvider {
   ImageProvider getImage(TileCoordinates coordinates, TileLayer options) => MemoryImage(transparentPng);
 }
 
-class FakeLocationService implements LocationService {
-  FakeLocationService([this.result = const LocationResult.found(LatLng(32.9, 13.2))]);
-
-  LocationResult result;
-  var calls = 0;
-
-  @override
-  Future<LocationResult> current() async {
-    calls++;
-    return result;
-  }
-}
-
 class FakePhotoService implements PhotoService {
   FakePhotoService([this.photo]);
 
@@ -145,36 +122,8 @@ class FakePhotoService implements PhotoService {
 
 final testPhoto = PickedPhoto(bytes: transparentPng, contentType: 'image/png');
 
-class FakeAuthRepo implements AuthRepository {
-  FakeAuthRepo({this.userId = 'u1'});
-
-  String? userId;
-  final calls = <String>[];
-  Object? signUpError;
-  Completer<void>? signUpGate;
-
-  @override
-  String? get currentUserId => userId;
-
-  @override
-  Future<void> signUp({
-    required String phone,
-    required String password,
-    required String fullName,
-    required UserRole role,
-  }) async {
-    calls.add('signUp:$phone:${role.name}');
-    await signUpGate?.future;
-    if (signUpError != null) throw signUpError!;
-    userId = 'u1';
-  }
-
-  @override
-  Future<void> signOut() async => calls.add('signOut');
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
+/// A Tripoli spot every fake location returns unless a test sets another.
+const barberSpot = LocationResult.found(LatLng(32.9, 13.2));
 
 Widget testApp({
   required Widget home,
@@ -186,38 +135,22 @@ Widget testApp({
   AuthRepository? auth,
   Barber? barber,
   Future<Barber?> Function()? barberLoader,
-}) => ProviderScope(
-  retry: (_, _) => null,
+}) => wrapApp(
+  home,
   overrides: [
     currentBarberProvider.overrideWith(
       (_) => barberLoader != null ? barberLoader() : Future.value(barber ?? fakeBarber),
     ),
     todayClosureProvider.overrideWith((_) async => closure),
     mapTileProviderProvider.overrideWithValue(BlankTileProvider()),
-    locationServiceProvider.overrideWithValue(location ?? FakeLocationService()),
+    locationServiceProvider.overrideWithValue(location ?? FakeLocationService(barberSpot)),
     photoServiceProvider.overrideWithValue(photos ?? FakePhotoService()),
     citiesProvider.overrideWith((_) async => [tripoliCity]),
     areasProvider.overrideWith((_) async => testAreas),
     if (barbers != null) barberRepositoryProvider.overrideWithValue(barbers),
     if (auth != null) authRepositoryProvider.overrideWithValue(auth),
-    ...overrides.cast(),
+    ...overrides,
   ],
-  child: MaterialApp(
-    theme: AppTheme.light(),
-    locale: AppTheme.locale,
-    supportedLocales: AppTheme.supportedLocales,
-    localizationsDelegates: AppTheme.localizationsDelegates,
-    home: home,
-  ),
 );
 
 const haircut = BarberService(barberId: 'b1', serviceId: 's1', price: 25, durationMin: 30, nameAr: 'قص شعر');
-
-Future<void> tapVisible(WidgetTester tester, Finder finder) async {
-  FocusManager.instance.primaryFocus?.unfocus();
-  await tester.pumpAndSettle();
-  await tester.ensureVisible(finder);
-  await tester.pumpAndSettle();
-  await tester.tap(finder);
-  await tester.pumpAndSettle();
-}

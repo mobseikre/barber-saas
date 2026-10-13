@@ -280,6 +280,71 @@ void main() {
     });
   });
 
+  test('BarberListing reads the directory row with the salon and location', () {
+    final b = BarberListing.fromJson({
+      'id': 'b1',
+      'salon_id': 's1',
+      'display_name': 'علي القماطي',
+      'photo_url': null,
+      'is_vip': true,
+      'rating_avg': 4.8,
+      'rating_count': 212,
+      'is_bookable': true,
+      'phone': '218912345678',
+      'salon_name': 'صالون الأناقة',
+      'area_id': 'a1',
+      'address': 'شارع الجمهورية',
+      'latitude': 32.8752,
+      'longitude': 13.1146,
+      'salon_photos': ['avatars/x.jpg'],
+    });
+
+    expect((b.isVip, b.ratingAvg, b.ratingCount, b.isBookable), (true, 4.8, 212, true));
+    expect(
+      (b.salonName, b.areaId, b.latitude, b.longitude, b.hasLocation),
+      ('صالون الأناقة', 'a1', 32.8752, 13.1146, true),
+    );
+    expect(b.salonPhotos, ['avatars/x.jpg']);
+  });
+
+  test('a directory row without a location or rating uses defaults', () {
+    final b = BarberListing.fromJson({
+      'id': 'b1',
+      'salon_id': 's1',
+      'display_name': 'x',
+      'is_bookable': false,
+      'salon_name': 'y',
+      'rating_avg': 0,
+    });
+
+    expect((b.isVip, b.ratingAvg, b.ratingCount, b.isBookable, b.hasLocation), (false, 0.0, 0, false, false));
+    expect(b.salonPhotos, isEmpty);
+  });
+
+  test('SalonBarber and SalonDayHours read the salon views', () {
+    final barber = SalonBarber.fromJson({
+      'id': 'b2',
+      'salon_id': 's1',
+      'display_name': 'وليد الشريف',
+      'is_vip': false,
+      'rating_avg': 0,
+      'rating_count': 0,
+      'is_bookable': false,
+    });
+    final hours = SalonDayHours.fromJson({
+      'salon_id': 's1',
+      'weekday': 4,
+      'opens_at': '09:00:00',
+      'closes_at': '23:00:00',
+    });
+
+    expect((barber.displayName, barber.isBookable), ('وليد الشريف', false));
+    expect(
+      (hours.weekday, hours.opensAt, hours.closesAt),
+      (4, const TimeOfDay(hour: 9, minute: 0), const TimeOfDay(hour: 23, minute: 0)),
+    );
+  });
+
   test('isAfter compares times of day', () {
     expect(isAfter(const TimeOfDay(hour: 13, minute: 0), const TimeOfDay(hour: 12, minute: 59)), isTrue);
     expect(isAfter(const TimeOfDay(hour: 12, minute: 0), const TimeOfDay(hour: 12, minute: 0)), isFalse);

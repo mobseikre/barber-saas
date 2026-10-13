@@ -9,6 +9,7 @@ import '../theme/app_text.dart';
 import 'app_button.dart';
 import 'app_header.dart';
 import 'app_logo.dart';
+import 'page_title.dart';
 import 'app_text_field.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -57,11 +58,20 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            const AppHeader(
+            AppHeader(
               title: 'تسجيل الدخول',
               subtitle: 'أهلاً بعودتك إلى حلّاقي',
               subtitleBelow: true,
-              leading: AppLogo(),
+              leading: ModalRoute.of(context)?.canPop == true
+                  ? const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AppBackButton(),
+                        SizedBox(width: AppSpacing.md),
+                        AppLogo(),
+                      ],
+                    )
+                  : const AppLogo(),
             ),
             Padding(
               padding: const EdgeInsets.all(AppSpacing.screen),
@@ -71,11 +81,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      PhoneField(controller: _phone, required: true, textInputAction: TextInputAction.next),
+                      PhoneField(controller: _phone, textInputAction: TextInputAction.next),
                       const SizedBox(height: AppSpacing.xl),
                       PasswordField(
                         controller: _password,
-                        required: true,
                         textInputAction: TextInputAction.done,
                         onFieldSubmitted: (_) => _submit(),
                       ),

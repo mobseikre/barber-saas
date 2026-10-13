@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared/shared.dart';
+import 'package:test_support/test_support.dart';
 
 import 'package:barber_app/features/registration/complete_registration_screen.dart';
 import 'package:barber_app/services/location_service.dart';
@@ -27,8 +28,8 @@ void main() {
 
   setUp(() {
     repo = FakeBarberRepo();
-    auth = FakeAuthRepo();
-    location = FakeLocationService();
+    auth = FakeAuthRepo(userId: 'u1', newUserId: 'u1');
+    location = FakeLocationService(barberSpot);
     photos = FakePhotoService();
   });
 

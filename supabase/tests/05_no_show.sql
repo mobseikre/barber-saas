@@ -110,7 +110,7 @@ select results_eq($$ select no_show_count, blocked_at is not null from profiles 
   $$ values (3, true) $$, 'the third no-show blocks the customer');
 
 select pg_temp.login('khaled');
-select throws_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '10:00')) $$,
+select throws_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '10:00'), gen_random_uuid()) $$,
   'customer_blocked', 'a blocked customer cannot book');
 
 select pg_temp.login('ali');
@@ -119,7 +119,7 @@ select pg_temp.logout();
 select results_eq($$ select no_show_count, blocked_at is not null from profiles where id = pg_temp.fx('khaled') $$,
   $$ values (2, true) $$, 'reverting a no-show decrements the count but keeps the block');
 select pg_temp.login('khaled');
-select throws_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '10:00')) $$,
+select throws_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '10:00'), gen_random_uuid()) $$,
   'customer_blocked', 'below the limit again, the customer stays blocked until an admin unblocks');
 
 select pg_temp.login('ali');
@@ -138,7 +138,7 @@ select results_eq($$ select no_show_count, blocked_at is null from profiles wher
   $$ values (0, true) $$, 'unblocking resets the count and the block');
 
 select pg_temp.login('khaled');
-select lives_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '10:00')) $$,
+select lives_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '10:00'), gen_random_uuid()) $$,
   'unblocked customer can book again');
 
 select pg_temp.login('ali');

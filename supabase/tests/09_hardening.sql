@@ -182,7 +182,7 @@ select pg_temp.anon();
 select is((select count(*) from barber_directory where id = pg_temp.fx('barber'))::int, 1, 'anon sees the active barber in the directory');
 select is((select count(*) from barber_directory where id = pg_temp.fx('barber_pending'))::int, 0, 'but not a pending barber');
 select ok((select count(*) from get_available_slots(pg_temp.fx('barber'), pg_temp.next_saturday(), 30)) > 0, 'anon sees free slots');
-select throws_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '12:00')) $$,
+select throws_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '12:00'), gen_random_uuid()) $$,
   '42501', null, 'anon cannot book');
 select pg_temp.logout();
 update barbers set status = 'suspended' where id = pg_temp.fx('barber_pending');

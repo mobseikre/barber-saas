@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_dimens.dart';
@@ -16,28 +17,31 @@ class PageTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        AppSpacing.screen,
-        MediaQuery.paddingOf(context).top + AppSpacing.xl,
-        AppSpacing.screen,
-        AppSpacing.lg,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (leading != null) ...[leading!, const SizedBox(width: AppSpacing.md)],
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: AppText.h1),
-                if (subtitle != null) Text(subtitle!, style: AppText.caption.copyWith(color: AppColors.text3)),
-              ],
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          AppSpacing.screen,
+          MediaQuery.paddingOf(context).top + AppSpacing.xl,
+          AppSpacing.screen,
+          AppSpacing.lg,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (leading != null) ...[leading!, const SizedBox(width: AppSpacing.md)],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: AppText.h1),
+                  if (subtitle != null) Text(subtitle!, style: AppText.caption.copyWith(color: AppColors.text3)),
+                ],
+              ),
             ),
-          ),
-          if (trailing != null) ...[const SizedBox(width: AppSpacing.md), trailing!],
-        ],
+            if (trailing != null) ...[const SizedBox(width: AppSpacing.md), trailing!],
+          ],
+        ),
       ),
     );
   }

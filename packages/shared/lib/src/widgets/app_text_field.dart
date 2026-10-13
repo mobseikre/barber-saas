@@ -166,10 +166,12 @@ class PasswordField extends StatefulWidget {
     this.textInputAction,
     this.onFieldSubmitted,
     this.autofillHints = const [AutofillHints.password],
+    this.hint,
   });
 
   final TextEditingController controller;
   final String label;
+  final String? hint;
   final bool required;
   final FormFieldValidator<String>? validator;
   final TextInputAction? textInputAction;
@@ -195,6 +197,7 @@ class _PasswordFieldState extends State<PasswordField> {
   Widget build(BuildContext context) {
     return AppTextField(
       label: widget.label,
+      hint: widget.hint,
       required: widget.required,
       controller: widget.controller,
       obscureText: _obscure,

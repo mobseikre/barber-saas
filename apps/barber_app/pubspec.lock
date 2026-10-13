@@ -326,7 +326,7 @@ packages:
     source: hosted
     version: "0.1.1"
   geolocator:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: geolocator
       sha256: "4e41ad6bc072364ff01822531dac47936c065e5bf8f928f240a25bb51256ada0"
@@ -1057,6 +1057,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.6.12"
+  test_support:
+    dependency: "direct dev"
+    description:
+      path: "../../packages/test_support"
+      relative: true
+    source: path
+    version: "0.1.0"
   timezone:
     dependency: transitive
     description:

@@ -274,23 +274,23 @@ delete from day_closures where barber_id = pg_temp.fx('barber') and date = pg_te
 
 update profiles set blocked_at = now() where id = pg_temp.fx('salem');
 select pg_temp.login('salem');
-select throws_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '12:00')) $$,
+select throws_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '12:00'), gen_random_uuid()) $$,
   'customer_blocked', 'a blocked customer gets a fixed code');
-select is(pg_temp.error_detail($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '12:00')) $$),
+select is(pg_temp.error_detail($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '12:00'), gen_random_uuid()) $$),
   'no_show_limit=3', 'with the limit in DETAIL');
 select pg_temp.logout();
 update profiles set blocked_at = null where id = pg_temp.fx('salem');
 
 select pg_temp.login('lina');
 select is((select xmax::text from profiles where id = pg_temp.fx('lina')), '0', 'the customer profile row is not locked yet');
-select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '19:00'));
+select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '19:00'), gen_random_uuid());
 select isnt((select xmax::text from profiles where id = pg_temp.fx('lina')), '0', 'create_booking locks the customer profile row');
 select pg_temp.login('khaled');
-select lives_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '12:00')) $$,
+select lives_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('haircut'), pg_temp.local_ts(pg_temp.next_saturday(), '12:00'), gen_random_uuid()) $$,
   'a second upcoming booking is allowed');
-select throws_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('beard'), pg_temp.local_ts(pg_temp.next_saturday(), '16:00')) $$,
+select throws_ok($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('beard'), pg_temp.local_ts(pg_temp.next_saturday(), '16:00'), gen_random_uuid()) $$,
   'booking_limit_reached', 'the upcoming limit is a fixed code');
-select is(pg_temp.error_detail($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('beard'), pg_temp.local_ts(pg_temp.next_saturday(), '16:00')) $$),
+select is(pg_temp.error_detail($$ select create_booking(pg_temp.fx('barber'), pg_temp.fx('beard'), pg_temp.local_ts(pg_temp.next_saturday(), '16:00'), gen_random_uuid()) $$),
   'upcoming_booking_limit=2', 'with the limit in DETAIL');
 
 -- only active barbers create salons directly
@@ -310,7 +310,7 @@ select ok((
     'public.reopen_today()',
     'public.activate_subscription(uuid,int,numeric,text)',
     'public.unblock_customer(uuid)',
-    'public.create_booking(uuid,uuid,timestamptz)',
+    'public.create_booking(uuid,uuid,timestamptz,uuid)',
     'public.create_manual_booking(uuid,timestamptz,text)',
     'public.set_booking_status(uuid,public.booking_status)',
     'public.cancel_booking(uuid,public.barber_cancel_reason,text)',

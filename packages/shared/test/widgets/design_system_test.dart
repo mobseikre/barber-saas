@@ -13,6 +13,29 @@ Widget _app(Widget child, {MediaQueryData? media}) => MaterialApp(
 );
 
 void main() {
+  testWidgets('StatusBarScrim lets taps through to content under the status bar', (tester) async {
+    var taps = 0;
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(padding: EdgeInsets.only(top: 40)),
+        child: Directionality(
+          textDirection: TextDirection.rtl,
+          child: StatusBarScrim(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => taps++,
+              child: const SizedBox.expand(),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tapAt(const Offset(100, 20));
+
+    expect(taps, 1);
+  });
+
   group('inputs', () {
     testWidgets('a text field, the phone field and the password field are 52px tall', (tester) async {
       await tester.pumpWidget(

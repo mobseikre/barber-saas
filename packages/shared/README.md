@@ -5,7 +5,8 @@ Dart package used by both Flutter apps (`barber_app`, `customer_app`). Anything 
 | Folder | Contents |
 |---|---|
 | `lib/src/theme` | Colour, type, spacing, radius and size tokens, `ThemeData`, the focus ring border |
-| `lib/src/widgets` | Buttons, text fields, phone field, badges, cards, switch, headers, logo, bottom sheet helper, login screen |
+| `lib/src/widgets` | Buttons, text fields, phone field, badges, cards, switch, headers, logo, bottom sheet helper, login screen, tab shell and bottom nav |
+| `lib/src/providers` | Core Riverpod providers both apps read |
 | `lib/src/models` | Profiles, salons, barbers, services, working hours, bookings, reviews, stats |
 | `lib/src/repositories` | Supabase queries and RPC calls |
 | `lib/src/errors` | Arabic messages for database and auth errors |

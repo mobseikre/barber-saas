@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-TimeOfDay _parseTime(String value) {
+/// `09:30:00` → 9:30.
+TimeOfDay parseDbTime(String value) {
   final parts = value.split(':');
   return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
 }
@@ -29,8 +30,8 @@ class WorkingHours {
   factory WorkingHours.fromJson(Map<String, dynamic> json) => WorkingHours(
     barberId: json['barber_id'] as String,
     weekday: json['weekday'] as int,
-    opensAt: _parseTime(json['opens_at'] as String),
-    closesAt: _parseTime(json['closes_at'] as String),
+    opensAt: parseDbTime(json['opens_at'] as String),
+    closesAt: parseDbTime(json['closes_at'] as String),
     isClosed: json['is_closed'] as bool? ?? false,
   );
 
@@ -65,8 +66,8 @@ class Break {
     barberId: json['barber_id'] as String,
     weekday: json['weekday'] as int?,
     name: json['name'] as String,
-    startsAt: _parseTime(json['starts_at'] as String),
-    endsAt: _parseTime(json['ends_at'] as String),
+    startsAt: parseDbTime(json['starts_at'] as String),
+    endsAt: parseDbTime(json['ends_at'] as String),
   );
 
   Map<String, dynamic> toJson() => {
@@ -94,7 +95,7 @@ class DayClosure {
     id: json['id'] as String,
     barberId: json['barber_id'] as String,
     date: DateTime.parse(json['date'] as String),
-    fromTime: json['from_time'] == null ? null : _parseTime(json['from_time'] as String),
+    fromTime: json['from_time'] == null ? null : parseDbTime(json['from_time'] as String),
     reason: json['reason'] as String?,
   );
 }

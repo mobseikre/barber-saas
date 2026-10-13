@@ -2,26 +2,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared/shared.dart';
 
-import 'services/location_service.dart';
 import 'services/photo_service.dart';
-
-final supabaseClientProvider = Provider<SupabaseClient>((_) => supabase);
-
-final authRepositoryProvider = Provider((ref) => AuthRepository(ref.watch(supabaseClientProvider)));
-final barberRepositoryProvider = Provider((ref) => BarberRepository(ref.watch(supabaseClientProvider)));
-final bookingRepositoryProvider = Provider((ref) => BookingRepository(ref.watch(supabaseClientProvider)));
-
-final authStateProvider = StreamProvider<AuthState>((ref) => ref.watch(authRepositoryProvider).onAuthStateChange);
-
-final currentUserIdProvider = Provider<String?>((ref) {
-  ref.watch(authStateProvider);
-  return ref.watch(authRepositoryProvider).currentUserId;
-});
-
-final currentProfileProvider = FutureProvider<Profile?>((ref) {
-  ref.watch(currentUserIdProvider);
-  return ref.watch(authRepositoryProvider).currentProfile();
-});
 
 final currentBarberProvider = FutureProvider<Barber?>((ref) async {
   final userId = ref.watch(currentUserIdProvider);
@@ -29,12 +10,8 @@ final currentBarberProvider = FutureProvider<Barber?>((ref) async {
   return ref.watch(barberRepositoryProvider).barberForProfile(userId);
 });
 
-final locationServiceProvider = Provider<LocationService>((_) => const GeolocatorLocationService());
 final photoServiceProvider = Provider<PhotoService>((_) => const ImagePickerPhotoService());
 final mapTileProviderProvider = Provider<TileProvider?>((_) => null);
-
-final citiesProvider = FutureProvider<List<City>>((ref) => ref.watch(barberRepositoryProvider).cities());
-final areasProvider = FutureProvider<List<Area>>((ref) => ref.watch(barberRepositoryProvider).areas());
 
 final serviceCatalogProvider = FutureProvider.autoDispose<List<ServiceCatalogItem>>(
   (ref) => ref.watch(barberRepositoryProvider).serviceCatalog(),

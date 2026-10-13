@@ -21,6 +21,11 @@ void main() {
     expect(range.end.toUtc(), DateTime.utc(2026, 10, 11, 22));
   });
 
+  test('dbDate is the Tripoli calendar date', () {
+    expect(dbDate(DateTime.utc(2026, 10, 10, 21, 59)), '2026-10-10');
+    expect(dbDate(DateTime.utc(2026, 10, 10, 22)), '2026-10-11');
+  });
+
   test('startOfDay and at build Tripoli times from any instant', () {
     final instant = DateTime.utc(2026, 10, 11, 21, 59);
 
@@ -52,6 +57,33 @@ void main() {
     expect(b.hasStarted, isFalse);
     AppTime.clock = () => DateTime.utc(2026, 10, 11, 8);
     expect(b.hasStarted, isTrue);
+  });
+
+  test('dbDate and dbWeekday use the Tripoli calendar day', () {
+    final lateSaturdayUtc = DateTime.utc(2026, 10, 10, 22, 30);
+
+    expect(dbDate(lateSaturdayUtc), '2026-10-11');
+    expect(dbWeekday(AppTime.from(lateSaturdayUtc)), 0, reason: 'Sunday in Tripoli is weekday 0 in Postgres');
+    expect(dbWeekday(DateTime(2026, 10, 10)), 6);
+  });
+
+  test('a confirmed booking stays upcoming until it ends', () {
+    AppTime.clock = () => DateTime.utc(2026, 10, 10, 8, 15);
+    Booking at(int startMinute) => Booking(
+      id: 'b',
+      barberId: 'x',
+      serviceId: 's',
+      price: 25,
+      durationMin: 30,
+      startsAt: DateTime.utc(2026, 10, 10, 8, startMinute),
+      endsAt: DateTime.utc(2026, 10, 10, 8, startMinute + 30),
+      status: BookingStatus.confirmed,
+      source: BookingSource.app,
+      createdAt: DateTime.utc(2026),
+    );
+
+    expect(at(0).isUpcoming, isTrue, reason: 'it started but has not ended');
+    expect(at(-30).isUpcoming, isFalse);
   });
 }
 

@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared/shared.dart';
 
-import '../../providers.dart';
-
 /// Search field that picks an existing salon.
 class SalonPicker extends ConsumerStatefulWidget {
   const SalonPicker({super.key, required this.selected, required this.onChanged});

@@ -128,4 +128,32 @@ void main() {
 
     expect(find.text(supportFallbackMessage), findsOneWidget);
   });
+
+  testWidgets('the fields carry no required mark', (tester) async {
+    await pumpLogin(tester);
+
+    expect(find.textContaining('*', findRichText: true), findsNothing);
+  });
+
+  testWidgets('opened over another screen it shows the back button beside the logo', (tester) async {
+    await pumpLogin(tester);
+    expect(find.byType(AppLogo), findsOneWidget);
+    expect(find.byType(AppBackButton), findsNothing, reason: 'the first screen has nothing to go back to');
+
+    Navigator.of(tester.element(find.byType(LoginScreen))).push(
+      MaterialPageRoute<void>(
+        builder: (_) => LoginScreen(
+          onSignIn: ({required phone, required password}) async {},
+          signUpRoute: () => MaterialPageRoute<void>(builder: (_) => const SizedBox()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final back = tester.getRect(find.byType(AppBackButton));
+    final logo = tester.getRect(find.byType(AppLogo).last);
+    expect(back.overlaps(logo), isFalse);
+    expect(back.center.dx, greaterThan(logo.center.dx), reason: 'back comes first on the right in RTL');
+    expect((back.center.dy - logo.center.dy).abs(), lessThan(1), reason: 'they sit on one row');
+  });
 }
