@@ -141,6 +141,12 @@ class FakeDirectoryRepo implements DirectoryRepository {
   ];
 
   @override
+  Future<String?> salonOfBarber(String barberId) async {
+    if (barbersError != null) throw barbersError!;
+    return barbers.where((b) => b.id == barberId).firstOrNull?.salonId;
+  }
+
+  @override
   Future<List<SalonBarber>> salonBarbers(String salonId) async {
     if (teamError != null) throw teamError!;
     return team;
@@ -380,6 +386,10 @@ class TestDeps {
   final myBookings = FakeMyBookingsRepo();
   final offline = ValueNotifier<DateTime?>(null);
   final connectivity = StreamController<bool>.broadcast();
+  final push = FakePushMessaging();
+  final deviceTokens = FakeDeviceTokenRepository();
+  final links = StreamController<Uri>.broadcast();
+  Uri? launchLink;
 
   late final overrides = [
     authRepositoryProvider.overrideWithValue(auth),
@@ -390,6 +400,9 @@ class TestDeps {
     myBookingsRepositoryProvider.overrideWithValue(myBookings),
     offlineStatusProvider.overrideWithValue(offline),
     connectivityProvider.overrideWith((_) => connectivity.stream),
+    pushMessagingProvider.overrideWithValue(push),
+    deviceTokenRepositoryProvider.overrideWithValue(deviceTokens),
+    appLinksProvider.overrideWithValue(launchThenIncomingLinks(Future.value(launchLink), links.stream)),
   ];
 
   Widget app(Widget home) => wrapApp(home, overrides: overrides);

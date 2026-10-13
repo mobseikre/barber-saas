@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared/shared.dart';
 
 import '../../providers.dart';
+import '../bookings/today_bookings_provider.dart';
 import '../home/home_shell.dart';
 import '../registration/complete_registration_screen.dart';
 import 'pending_activation_screen.dart';
@@ -14,6 +15,18 @@ class AuthGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(currentBarberProvider, (_, next) {
+      final userId = ref.read(currentUserIdProvider);
+      if (next case AsyncData(value: Barber()) when userId != null) ref.read(pushTokensProvider).register(userId);
+    });
+    ref.listen(pushNoticesProvider, (_, next) {
+      final notice = next.value;
+      if (notice == null) return;
+      ref.invalidate(todayBookingsProvider);
+      final text = [notice.title, notice.body].nonNulls.join('\n');
+      if (text.isNotEmpty) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    });
+
     final userId = ref.watch(currentUserIdProvider);
     if (userId == null) {
       return LoginScreen(
@@ -73,7 +86,7 @@ class _NotBarberAccount extends ConsumerWidget {
                   style: AppText.body.copyWith(color: AppColors.text2),
                 ),
                 const SizedBox(height: AppSpacing.xxl),
-                AppButton(label: 'تسجيل الخروج', onPressed: () => ref.read(authRepositoryProvider).signOut()),
+                AppButton(label: 'تسجيل الخروج', onPressed: () => signOut(ref)),
               ],
             ),
           ),

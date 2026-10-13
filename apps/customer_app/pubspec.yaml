@@ -21,6 +21,7 @@ dependencies:
     path: ../../packages/shared
   latlong2: ^0.10.1
   uuid: ^4.5.1
+  app_links: ^7.0.0
 
 dev_dependencies:
   flutter_test:

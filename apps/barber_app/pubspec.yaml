@@ -19,6 +19,11 @@ dependencies:
   flutter_map: ^8.3.2
   latlong2: ^0.10.1
   image_picker: ^1.2.3
+  qr_flutter: ^4.1.0
+  pdf: ^3.12.0
+  printing: ^5.14.3
+  # image 4.11 needs archive 4.1, which pdf 3.12 does not allow
+  image: ">=4.10.1 <4.11.0"
 
 dev_dependencies:
   flutter_test:

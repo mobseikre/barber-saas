@@ -9,5 +9,6 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('ar');
   await initSupabase();
-  runApp(const ProviderScope(child: BarberApp()));
+  final push = await initPush();
+  runApp(ProviderScope(overrides: [pushMessagingProvider.overrideWithValue(push)], child: const BarberApp()));
 }

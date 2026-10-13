@@ -5,6 +5,12 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// google-services.json is downloaded from the Firebase console and never committed (see CLAUDE.md).
+// Without it the app builds and runs with push notifications off.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "ly.hallaqi.customer_app"
     compileSdk = flutter.compileSdkVersion
