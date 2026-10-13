@@ -308,7 +308,11 @@ select ok((
   from unnest(array[
     'public.register_barber(text,uuid,text,uuid,text,double precision,double precision)',
     'public.reopen_today()',
-    'public.activate_subscription(uuid,int,numeric,text)',
+    'public.activate_subscription(uuid,int,numeric,text,text)',
+    'public.admin_save_subscription_plan(int,numeric,boolean)',
+    'public.admin_today_counts()',
+    'public.change_password(text)',
+    'public.admin_revoke_sessions(uuid)',
     'public.unblock_customer(uuid)',
     'public.create_booking(uuid,uuid,timestamptz,uuid)',
     'public.create_manual_booking(uuid,timestamptz,text)',

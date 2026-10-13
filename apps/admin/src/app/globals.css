@@ -1,0 +1,36 @@
+@import '@fontsource/cairo/arabic-400.css';
+@import '@fontsource/cairo/arabic-500.css';
+@import '@fontsource/cairo/arabic-600.css';
+@import '@fontsource/cairo/arabic-700.css';
+@import '@fontsource/cairo/arabic-800.css';
+@import '@fontsource/cairo/latin-400.css';
+@import '@fontsource/cairo/latin-500.css';
+@import '@fontsource/cairo/latin-600.css';
+@import '@fontsource/cairo/latin-700.css';
+@import '@fontsource/cairo/latin-800.css';
+@import 'leaflet/dist/leaflet.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  background: #f4f6fb;
+  color: #13225a;
+  font-family: 'Cairo', system-ui, sans-serif;
+}
+
+body {
+  font-size: 15px;
+  line-height: 24px;
+}
+
+.leaflet-container {
+  font-family: 'Cairo', system-ui, sans-serif;
+}
+
+.pin-icon {
+  background: none;
+  border: 0;
+}

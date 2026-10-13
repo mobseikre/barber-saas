@@ -40,6 +40,11 @@ final currentUserIdProvider = Provider<String?>((ref) {
   return ref.watch(authRepositoryProvider).currentUserId;
 });
 
+final mustChangePasswordProvider = Provider<bool>((ref) {
+  ref.watch(authStateProvider);
+  return ref.watch(authRepositoryProvider).mustChangePassword;
+});
+
 final currentProfileProvider = FutureProvider<Profile?>((ref) {
   ref.watch(currentUserIdProvider);
   return ref.watch(authRepositoryProvider).currentProfile();

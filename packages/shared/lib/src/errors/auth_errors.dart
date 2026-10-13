@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../constants.dart';
 import 'booking_errors.dart';
 
 String authErrorMessage(Object error) {
@@ -19,6 +20,7 @@ String authErrorMessage(Object error) {
       'not_a_customer' => 'هذا الرقم مسجّل كحلاق، استخدم تطبيق الحلاقين',
       'display_name_required' => 'أدخل اسمك الكامل',
       'salon_not_found' => 'الصالون المختار غير موجود',
+      'password_too_short' => 'كلمة المرور يجب أن تكون ${AppConstants.passwordMinLength} أحرف على الأقل',
       _ => bookingErrorMessage(error),
     };
   }

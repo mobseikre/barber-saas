@@ -13,6 +13,9 @@ class AuthRepository {
   Session? get currentSession => _client.auth.currentSession;
   String? get currentUserId => _client.auth.currentUser?.id;
 
+  /// Set by the admin password reset; cleared by [completePasswordChange].
+  bool get mustChangePassword => _client.auth.currentUser?.appMetadata['must_change_password'] == true;
+
   Future<void> signIn({required String phone, required String password}) async {
     await _client.auth.signInWithPassword(email: phoneToAuthEmail(phone), password: password);
   }
@@ -38,6 +41,12 @@ class AuthRepository {
     if (email == null) throw const AuthException('not_signed_in', code: 'not_authenticated');
     await _client.auth.signInWithPassword(email: email, password: currentPassword);
     await _client.auth.updateUser(UserAttributes(password: newPassword));
+  }
+
+  /// Replaces a temporary password and refreshes the session so it no longer carries the flag.
+  Future<void> completePasswordChange(String newPassword) async {
+    await _client.rpc<void>('change_password', params: {'p_new_password': newPassword});
+    await _client.auth.refreshSession();
   }
 
   Future<Profile?> currentProfile() async {
