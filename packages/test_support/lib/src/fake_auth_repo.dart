@@ -13,6 +13,13 @@ class FakeAuthRepo implements AuthRepository {
   Object? signInError;
   Object? signUpError;
   Object? changePasswordError;
+  @override
+  bool mustChangePassword = false;
+
+  /// Plays signing in with a temporary password from an admin reset.
+  bool signInWithTemporaryPassword = false;
+  Object? completePasswordChangeError;
+  Completer<void>? completePasswordChangeGate;
   Completer<void>? signUpGate;
   final _changes = StreamController<AuthState>.broadcast();
 
@@ -29,6 +36,7 @@ class FakeAuthRepo implements AuthRepository {
     calls.add('signIn:$phone');
     if (signInError != null) throw signInError!;
     userId = newUserId;
+    mustChangePassword = signInWithTemporaryPassword;
     _emit(AuthChangeEvent.signedIn);
   }
 
@@ -51,6 +59,7 @@ class FakeAuthRepo implements AuthRepository {
   Future<void> signOut() async {
     calls.add('signOut');
     userId = null;
+    mustChangePassword = false;
     _emit(AuthChangeEvent.signedOut);
   }
 
@@ -63,6 +72,15 @@ class FakeAuthRepo implements AuthRepository {
   Future<void> changePassword({required String currentPassword, required String newPassword}) async {
     calls.add('changePassword:$currentPassword:$newPassword');
     if (changePasswordError != null) throw changePasswordError!;
+  }
+
+  @override
+  Future<void> completePasswordChange(String newPassword) async {
+    calls.add('completePasswordChange:$newPassword');
+    await completePasswordChangeGate?.future;
+    if (completePasswordChangeError != null) throw completePasswordChangeError!;
+    mustChangePassword = false;
+    _emit(AuthChangeEvent.tokenRefreshed);
   }
 
   @override

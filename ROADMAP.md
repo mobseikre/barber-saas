@@ -9,7 +9,7 @@ Mark each step `[x]` when it is finished.
 | [x] | 3. Barber app | `apps/barber_app` and `packages/shared` | Opus 5.5 for the first screens, then Sonnet 5.5 |
 | [x] | 4. Customer app | `apps/customer_app`. Add a migration granting `anon` select on `salon_barbers` and `salon_hours` so visitors can browse salon pages before signing up | Opus 5.5 for the booking flow, Sonnet 5.5 for the rest |
 | [x] | 5. Notifications and QR | Push notifications, QR check-in | Opus 5.5 |
-| [ ] | 6. Admin dashboard | `apps/admin` (Next.js), including password reset for barbers and customers. When approving a barber, show the salon location on a map with the option to correct it | Sonnet 5.5 |
+| [x] | 6. Admin dashboard | `apps/admin` (Next.js), including password reset for barbers and customers. When approving a barber, show the salon location on a map with the option to correct it | Sonnet 5.5 |
 
 ## Polish before launch
 

@@ -43,6 +43,7 @@ export 'src/widgets/app_switch.dart';
 export 'src/widgets/app_text_field.dart';
 export 'src/widgets/login_screen.dart';
 export 'src/widgets/page_title.dart';
+export 'src/widgets/password_change_gate.dart';
 export 'src/widgets/retry_message.dart';
 export 'src/widgets/tab_shell.dart';
 export 'src/widgets/badges.dart';

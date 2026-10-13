@@ -488,4 +488,43 @@ void main() {
     expect(find.textContaining('غير متصل'), findsOneWidget);
     expect(find.text('حلاقون قريبون منك'), findsOneWidget);
   });
+
+  testWidgets('after an admin reset the customer picks a new password before anything else, then continues', (
+    tester,
+  ) async {
+    final phone = normalizeLibyanPhone(_randomPhone())!;
+    final newcomer = _client();
+    await newcomer.auth.signUp(
+      email: phoneToAuthEmail(phone),
+      password: 'password123',
+      data: {'full_name': 'زبون إعادة التعيين', 'phone': phone, 'role': 'customer'},
+    );
+    final id = newcomer.auth.currentUser!.id;
+    await newcomer.dispose();
+    final reset = await admin.functions.invoke('admin-reset-password', body: {'profile_id': id});
+    final temporary = (reset.data as Map)['temporary_password'] as String;
+
+    await _launch(tester);
+    await _openTab(tester, 'حسابي');
+    await _tap(tester, _button('تسجيل الدخول'));
+    await _waitFor(tester, find.text('نسيت كلمة المرور؟'));
+    await _type(tester, 'رقم الهاتف', '0${phone.substring(3)}');
+    await _type(tester, 'كلمة المرور', temporary);
+    await _tap(tester, _button('تسجيل الدخول'));
+
+    await _waitFor(tester, find.text('اختر كلمة مرور جديدة'));
+    expect(find.text('تسجيل الخروج'), findsOneWidget, reason: 'only the change screen is on top');
+    await _type(tester, 'كلمة المرور الجديدة', 'NewPass-2026');
+    await _type(tester, 'تأكيد كلمة المرور الجديدة', 'NewPass-2026');
+    await _tap(tester, _button('حفظ والمتابعة'));
+
+    await _waitUntilGone(tester, find.text('اختر كلمة مرور جديدة'));
+    await _waitFor(tester, find.text('زبون إعادة التعيين'));
+    expect(supabase.auth.currentUser!.appMetadata['must_change_password'], isNull);
+
+    final again = _client();
+    await again.auth.signInWithPassword(email: phoneToAuthEmail(phone), password: 'NewPass-2026');
+    expect(again.auth.currentUser!.appMetadata['must_change_password'], isNull);
+    await again.dispose();
+  });
 }
