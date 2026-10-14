@@ -6,6 +6,7 @@ import 'package:shared/shared.dart';
 import 'package:test_support/test_support.dart';
 
 import 'package:barber_app/features/bookings/booking_card.dart';
+import 'package:barber_app/features/bookings/subscription_banner.dart';
 import 'package:barber_app/features/bookings/today_bookings_provider.dart';
 import 'package:barber_app/features/bookings/today_bookings_screen.dart';
 
@@ -46,6 +47,7 @@ void main() {
     Object? manualError,
     Completer<void>? gate,
     DayClosure? closure,
+    Barber? barber,
   }) async {
     fake = FakeTodayBookings(
       bookings ?? sample(),
@@ -58,6 +60,7 @@ void main() {
       testApp(
         home: const TodayBookingsScreen(),
         closure: closure,
+        barber: barber,
         overrides: [
           todayBookingsProvider.overrideWith(() => fake),
           barberServicesProvider.overrideWith((_) async => [haircut]),
@@ -82,12 +85,192 @@ void main() {
     expect(find.text('إضافة حجز يدوي'), findsOneWidget);
   });
 
+  testWidgets('the day picker shows the next 14 days with today selected', (tester) async {
+    await pump(tester);
+
+    final tiles = tester.widgetList<DayTile>(find.byType(DayTile)).toList();
+    expect(tiles.first.label, 'اليوم');
+    expect(tiles.first.selected, isTrue);
+    expect(tiles[1].label, 'غداً');
+    expect(tiles.where((t) => t.selected), hasLength(1));
+
+    final last = AppTime.now().add(const Duration(days: AppConstants.bookingDays - 1));
+    final lastTile = find.widgetWithText(DayTile, '${last.day}');
+    final strip = find.byWidgetPredicate((w) => w is ListView && w.scrollDirection == Axis.horizontal);
+    await tester.dragUntilVisible(lastTile, strip, const Offset(200, 0));
+    expect(tester.widget<DayTile>(lastTile).label, ArabicFormat.weekday(last));
+    final beyond = AppTime.now().add(const Duration(days: AppConstants.bookingDays));
+    await tester.drag(strip, const Offset(400, 0));
+    await tester.pumpAndSettle();
+    expect(
+      find.widgetWithText(DayTile, '${beyond.day}'),
+      findsNothing,
+      reason: 'the strip ends after ${AppConstants.bookingDays} days',
+    );
+  });
+
+  testWidgets('picking tomorrow shows its bookings, and a manual booking goes on that day', (tester) async {
+    await pump(tester);
+    final tomorrow = AppTime.startOfDay(AppTime.now().add(const Duration(days: 1)));
+
+    await tester.tap(find.text('غداً'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('حجوزات غداً'), findsOneWidget);
+    expect(find.text(ArabicFormat.dayDate(tomorrow)), findsOneWidget);
+    expect(find.text('التالي'), findsNothing, reason: 'the next booking is a today thing');
+    expect(find.text('إغلاق بقية اليوم'), findsNothing);
+
+    await tester.tap(find.text('إضافة حجز يدوي'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining(ArabicFormat.dayDate(tomorrow)), findsWidgets);
+    await tester.enterText(find.byType(TextFormField).first, 'مراد الترهوني');
+    await tester.tap(find.byType(DropdownButtonFormField<BarberService>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('قص شعر').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('إضافة الحجز'));
+    await tester.pumpAndSettle();
+
+    expect(fake.manualStarts.single, AppTime.at(tomorrow, 10, 0));
+  });
+
+  testWidgets('a wrong attended tap can be undone from the snackbar', (tester) async {
+    await pump(tester);
+
+    await tester.tap(find.text('حضر'));
+    await tester.pumpAndSettle();
+    expect(find.text('سُجّل حضور أحمد الورفلي'), findsOneWidget);
+    await tester.tap(find.text('تراجع'));
+    await tester.pumpAndSettle();
+
+    expect(fake.calls, ['attended:3', 'undo:3']);
+  });
+
+  testWidgets('a no-show tap can be undone too', (tester) async {
+    await pump(tester);
+
+    await tester.tap(find.widgetWithText(ActionButton, 'لم يحضر'));
+    await tester.pumpAndSettle();
+    expect(find.text('سُجّل عدم حضور أحمد الورفلي'), findsOneWidget);
+    await tester.tap(find.text('تراجع'));
+    await tester.pumpAndSettle();
+
+    expect(fake.calls, ['no_show:3', 'undo:3']);
+  });
+
+  testWidgets('a closed later day says so without the reopen button', (tester) async {
+    await pump(
+      tester,
+      closure: DayClosure(barberId: 'b1', date: DateTime(2026, 10, 20)),
+    );
+    await tester.tap(find.text('غداً'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('هذا اليوم مغلق'), findsOneWidget);
+    expect(find.text('إعادة الفتح'), findsNothing);
+  });
+
+  testWidgets('closing the rest of today is a visible button on today only', (tester) async {
+    await pump(tester);
+
+    expect(find.widgetWithText(ActionButton, 'إغلاق بقية اليوم').hitTestable(), findsOneWidget);
+    expect(find.byType(PopupMenuButton<String>), findsNothing, reason: 'no longer hidden behind the avatar');
+  });
+
+  testWidgets('with the keyboard up on a small phone the cancel sheet scrolls to its confirm button', (tester) async {
+    await pump(tester);
+    tester.view.physicalSize = const Size(375, 667);
+    await tester.pumpAndSettle();
+
+    await tapVisible(tester, find.widgetWithText(ActionButton, 'إلغاء الحجز').first);
+    await tester.tap(find.text('مريض'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(TextFormField, 'سيراها الزبون'));
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('تأكيد الإلغاء'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تأكيد الإلغاء'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull, reason: 'nothing overflows');
+    expect(fake.calls, ['cancel:3:sick:']);
+  });
+
+  testWidgets('with the keyboard up the manual booking sheet still reaches its add button', (tester) async {
+    await pump(tester);
+    tester.view.physicalSize = const Size(375, 667);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('إضافة حجز يدوي'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).first, 'مراد الترهوني');
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownButtonFormField<BarberService>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('قص شعر').last);
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('إضافة الحجز'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('إضافة الحجز'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(fake.calls, ['manual:مراد الترهوني']);
+  });
+
+  testWidgets('a bookable barber sees no subscription banner', (tester) async {
+    await pump(tester);
+
+    expect(find.byType(SubscriptionBanner), findsNothing);
+  });
+
+  testWidgets('a lapsed barber works existing bookings, cannot add or close, and can reach the admin', (tester) async {
+    final launcher = FakeLauncher(tester);
+    await pump(
+      tester,
+      barber: Barber(
+        id: 'b1',
+        profileId: 'u1',
+        salonId: 's1',
+        displayName: 'علي القماطي',
+        status: BarberStatus.active,
+        subscriptionEndsAt: DateTime.now().subtract(const Duration(days: 2)),
+        createdAt: DateTime(2026),
+      ),
+    );
+
+    expect(find.text('انتهى اشتراكك'), findsOneWidget);
+    expect(find.text('إضافة حجز يدوي'), findsNothing);
+    expect(find.text('إغلاق بقية اليوم'), findsNothing);
+
+    await tester.tap(find.text('حضر'));
+    await tester.pump();
+    await tapVisible(tester, find.widgetWithText(ActionButton, 'إلغاء الحجز').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('مريض'));
+    await tester.pump();
+    await tester.tap(find.text('تأكيد الإلغاء'));
+    await tester.pumpAndSettle();
+    expect(fake.calls, ['attended:3', 'cancel:4:sick:']);
+
+    await tester.tap(find.text('تواصل مع الإدارة'));
+    await tester.pumpAndSettle();
+    expect(launcher.urls.single.host, 'wa.me');
+    expect(launcher.urls.single.queryParameters['text'], 'مرحباً، أريد تجديد اشتراكي');
+  });
+
   testWidgets('a booking that has not started shows only the cancel button', (tester) async {
     await pump(tester);
 
     final future = find.ancestor(of: find.text('يوسف المصراتي'), matching: find.byType(BookingCard));
-    expect(find.descendant(of: future, matching: find.byType(ActionButton)), findsNothing);
-    expect(find.descendant(of: future, matching: find.byTooltip('إلغاء الحجز')), findsOneWidget);
+    expect(find.descendant(of: future, matching: find.byType(ActionButton)), findsOneWidget);
+    expect(find.descendant(of: future, matching: find.text('حضر')), findsNothing);
+    expect(find.descendant(of: future, matching: find.widgetWithText(ActionButton, 'إلغاء الحجز')), findsOneWidget);
 
     await tester.drag(find.byType(CustomScrollView), const Offset(0, -600));
     await tester.pumpAndSettle();
@@ -130,7 +313,7 @@ void main() {
     );
   });
 
-  testWidgets('a closed day shows a banner with reopen and hides the close menu', (tester) async {
+  testWidgets('a closed day shows a banner with reopen and hides the close button', (tester) async {
     await pump(
       tester,
       closure: DayClosure(
@@ -142,7 +325,7 @@ void main() {
 
     expect(find.text('اليوم مغلق'), findsOneWidget);
     expect(find.text('لا يمكن للزبائن الحجز بعد 8:15 م'), findsOneWidget);
-    expect(tester.widget<PopupMenuButton<String>>(find.byType(PopupMenuButton<String>)).enabled, isFalse);
+    expect(find.text('إغلاق بقية اليوم'), findsNothing);
 
     await tester.tap(find.text('إعادة الفتح'));
     await tester.pumpAndSettle();
@@ -152,7 +335,7 @@ void main() {
   testWidgets('cancelling requires a reason and passes it with the note', (tester) async {
     await pump(tester);
 
-    await tester.tap(find.byTooltip('إلغاء الحجز').first);
+    await tester.tap(find.widgetWithText(ActionButton, 'إلغاء الحجز').first);
     await tester.pumpAndSettle();
     expect(find.text('إلغاء الحجز'), findsWidgets);
 
@@ -172,8 +355,6 @@ void main() {
     final remaining = sample().where((b) => b.isOpen).toList();
     await pump(tester, remaining: remaining);
 
-    await tester.tap(find.byTooltip('المزيد'));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('إغلاق بقية اليوم'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('إغلاق اليوم'));
@@ -182,7 +363,7 @@ void main() {
     expect(fake.calls, ['close']);
     expect(find.text('تم إغلاق بقية اليوم'), findsOneWidget);
     expect(find.text('أحمد الورفلي'), findsWidgets);
-    expect(find.widgetWithText(ActionButton, 'إلغاء الحجز'), findsNWidgets(2));
+    expect(find.widgetWithText(ActionButton, 'إلغاء الحجز'), findsNWidgets(4));
     expect(find.text('إغلاق'), findsOneWidget, reason: 'cannot finish with bookings left');
 
     await tester.tap(find.widgetWithText(ActionButton, 'إلغاء الحجز').first);
@@ -193,7 +374,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(fake.calls.last, 'cancel:3:sick:');
-    expect(find.widgetWithText(ActionButton, 'إلغاء الحجز'), findsOneWidget);
+    expect(find.widgetWithText(ActionButton, 'إلغاء الحجز'), findsNWidgets(3));
   });
 
   testWidgets('a rejected manual booking shows the reason inside the sheet', (tester) async {

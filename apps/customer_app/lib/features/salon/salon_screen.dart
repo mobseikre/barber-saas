@@ -47,17 +47,15 @@ class _SalonScreenState extends ConsumerState<SalonScreen> {
     final error = listings.error ?? barbers.error ?? hours.error;
 
     if (error != null) {
-      return Scaffold(
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.screen),
-            child: RetryMessage(title: 'تعذّر تحميل الصالون', message: bookingErrorMessage(error), onRetry: _retry),
-          ),
+      return _WithBack(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.screen),
+          child: RetryMessage(title: 'تعذّر تحميل الصالون', message: bookingErrorMessage(error), onRetry: _retry),
         ),
       );
     }
     if (!listings.hasValue || !barbers.hasValue || !hours.hasValue) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const _WithBack(child: CircularProgressIndicator());
     }
 
     final team = barbers.requireValue;
@@ -65,16 +63,17 @@ class _SalonScreenState extends ConsumerState<SalonScreen> {
       for (final b in team)
         if (b.isBookable) b,
     ];
-    final selected =
-        bookable.where((b) => b.id == _selectedId).firstOrNull ?? (bookable.isEmpty ? null : bookable.first);
+    final requested = team.where((b) => b.id == widget.barberId).firstOrNull;
+    final unavailable = requested != null && !requested.isBookable && _selectedId == requested.id;
+    final selected = unavailable
+        ? null
+        : bookable.where((b) => b.id == _selectedId).firstOrNull ?? (bookable.isEmpty ? null : bookable.first);
     final salonRows = listings.requireValue;
     final listing = salonRows.where((l) => l.id == selected?.id).firstOrNull;
     final salon = listing ?? salonRows.firstOrNull;
     if (salon == null) {
-      return Scaffold(
-        body: Center(
-          child: Text('هذا الصالون غير متاح حالياً', style: AppText.body.copyWith(color: AppColors.text3)),
-        ),
+      return _WithBack(
+        child: Text('هذا الصالون غير متاح حالياً', style: AppText.body.copyWith(color: AppColors.text3)),
       );
     }
 
@@ -158,6 +157,10 @@ class _SalonScreenState extends ConsumerState<SalonScreen> {
                               style: AppText.caption.copyWith(color: AppColors.text3),
                             ),
                           ],
+                          if (unavailable) ...[
+                            const SizedBox(height: AppSpacing.xl),
+                            _UnavailableNotice(name: requested.displayName, othersBookable: bookable.isNotEmpty),
+                          ],
                           if (selected != null) ...[
                             const SizedBox(height: AppSpacing.xl),
                             _ServicesCard(
@@ -186,10 +189,34 @@ class _SalonScreenState extends ConsumerState<SalonScreen> {
       ),
       bottomNavigationBar: _BookBar(
         barberName: selected?.displayName,
+        emptyLabel: unavailable && bookable.isNotEmpty ? 'اختر حلاقاً متاحاً' : 'لا يوجد حلاق متاح للحجز',
         fromPrice: fromPrice,
         onBook: listing == null || services?.value?.isNotEmpty != true
             ? null
             : () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => BookingScreen(barber: listing))),
+      ),
+    );
+  }
+}
+
+/// A page with [child] in the middle and only the back button, for the states before the salon shows.
+class _WithBack extends StatelessWidget {
+  const _WithBack({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          Center(child: child),
+          PositionedDirectional(
+            top: MediaQuery.paddingOf(context).top + AppSpacing.lg,
+            start: AppSpacing.screen,
+            child: const AppBackButton(),
+          ),
+        ],
       ),
     );
   }
@@ -433,6 +460,7 @@ class _BarberTile extends StatelessWidget {
                       RatingLabel(avg: barber.ratingAvg, count: barber.ratingCount)
                     else
                       Text('جديد', style: AppText.caption.copyWith(color: AppColors.text3)),
+                    if (enabled) NextFreeLabel(barberId: barber.id),
                   ],
                 ),
               ),
@@ -547,10 +575,40 @@ class _ServiceList extends StatelessWidget {
   }
 }
 
+class _UnavailableNotice extends StatelessWidget {
+  const _UnavailableNotice({required this.name, required this.othersBookable});
+
+  final String name;
+  final bool othersBookable;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      child: Row(
+        children: [
+          const Icon(Icons.event_busy_rounded, color: AppColors.danger),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('$name غير متاح للحجز حالياً', style: AppText.cardTitle),
+                if (othersBookable)
+                  Text('اختر حلاقاً آخر من الصالون', style: AppText.caption.copyWith(color: AppColors.text3)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _BookBar extends StatelessWidget {
-  const _BookBar({required this.barberName, required this.fromPrice, required this.onBook});
+  const _BookBar({required this.barberName, required this.emptyLabel, required this.fromPrice, required this.onBook});
 
   final String? barberName;
+  final String emptyLabel;
   final double? fromPrice;
   final VoidCallback? onBook;
 
@@ -576,7 +634,7 @@ class _BookBar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  firstName == null ? 'لا يوجد حلاق متاح للحجز' : 'مع $firstName',
+                  firstName == null ? emptyLabel : 'مع $firstName',
                   style: AppText.caption.copyWith(color: AppColors.text3),
                 ),
                 if (fromPrice != null) Text('يبدأ من ${ArabicFormat.price(fromPrice!)}', style: AppText.bodyStrong),
@@ -589,6 +647,34 @@ class _BookBar extends StatelessWidget {
             child: AppButton(label: 'احجز الآن', variant: AppButtonVariant.accent, onPressed: onBook),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// "اليوم ٤:٠٠ م" or "غداً ١٠:٠٠ ص" for the barber's next free start.
+class NextFreeLabel extends ConsumerWidget {
+  const NextFreeLabel({super.key, required this.barberId});
+
+  final String barberId;
+
+  static String text(TimeSlot slot, DateTime now) {
+    final day = dbDate(slot.startsAt) == dbDate(now) ? 'اليوم' : 'غداً';
+    return '$day ${ArabicFormat.time(slot.startsAt)}';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final slot = ref.watch(nextFreeSlotProvider(barberId));
+    final label = slot.whenOrNull(data: (s) => s == null ? 'لا يوجد موعد قريب' : text(s, AppTime.now()));
+    if (label == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.xs),
+      child: Text(
+        label,
+        style: AppText.label.copyWith(color: AppColors.success),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }

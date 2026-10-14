@@ -56,6 +56,7 @@ class _ServicesScreenState extends ConsumerState<ServicesScreen> {
   }
 
   Future<void> _save() async {
+    FocusScope.of(context).unfocus();
     final rows = _rows!;
     setState(() => _submitted = true);
     if (rows.any((r) => r.enabled && !(r.priceValid && r.durationValid))) return;
@@ -81,6 +82,7 @@ class _ServicesScreenState extends ConsumerState<ServicesScreen> {
       ref.invalidate(allBarberServicesProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حفظ الخدمات')));
+        if (widget.showBack) Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(bookingErrorMessage(e))));

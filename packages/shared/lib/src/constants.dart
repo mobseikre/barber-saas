@@ -10,8 +10,12 @@ abstract final class AppConstants {
   static const reviewMaxTags = 5;
   static const reviewTags = ['جودة القص', 'النظافة', 'الالتزام بالموعد', 'حسن التعامل', 'السعر مناسب'];
   static const fullNameMaxLength = 60;
+  static const salonNameMaxLength = 60;
   static const passwordMinLength = 8;
   static const slotStep = Duration(minutes: 15);
+
+  /// Days ahead, today included, that customers can book and barbers can see in their bookings.
+  static const bookingDays = 14;
   static const timezone = 'Africa/Tripoli';
   static const phoneCountryCode = '218';
   static const authEmailDomain = 'app.local';

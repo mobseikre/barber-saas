@@ -21,7 +21,7 @@ class CustomerApp extends ConsumerWidget {
       locale: AppTheme.locale,
       supportedLocales: AppTheme.supportedLocales,
       localizationsDelegates: AppTheme.localizationsDelegates,
-      builder: (context, child) => PasswordChangeGate(child: child!),
+      builder: (context, child) => KeyboardDismiss(child: PasswordChangeGate(child: child!)),
       home: const HomeShell(),
     );
   }

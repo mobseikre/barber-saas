@@ -11,10 +11,14 @@ enum AppBottomNavVariant { dark, light }
 
 /// Bottom-nav screen that builds each tab the first time it is opened and keeps it alive afterwards.
 class TabShell extends StatefulWidget {
-  const TabShell({super.key, required this.tabs, required this.variant});
+  const TabShell({super.key, required this.tabs, required this.variant, this.index, this.onChanged});
 
   final List<AppTab> tabs;
   final AppBottomNavVariant variant;
+
+  /// The tab to show when the app keeps the choice itself; taps then go to [onChanged].
+  final int? index;
+  final ValueChanged<int>? onChanged;
 
   @override
   State<TabShell> createState() => _TabShellState();
@@ -27,22 +31,21 @@ class _TabShellState extends State<TabShell> {
   @override
   Widget build(BuildContext context) {
     final tabs = widget.tabs;
+    final index = widget.index ?? _index;
+    _visited.add(index);
     return Scaffold(
       extendBody: true,
       body: IndexedStack(
-        index: _index,
+        index: index,
         children: [
           for (var i = 0; i < tabs.length; i++) _visited.contains(i) ? tabs[i].screen : const SizedBox.shrink(),
         ],
       ),
       bottomNavigationBar: AppBottomNav(
         variant: widget.variant,
-        index: _index,
+        index: index,
         items: [for (final t in tabs) (icon: t.icon, label: t.label)],
-        onChanged: (i) => setState(() {
-          _index = i;
-          _visited.add(i);
-        }),
+        onChanged: widget.onChanged ?? (i) => setState(() => _index = i),
       ),
     );
   }

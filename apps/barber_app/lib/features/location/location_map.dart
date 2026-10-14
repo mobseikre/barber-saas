@@ -31,7 +31,7 @@ class _LocationMapState extends ConsumerState<LocationMap> {
   final _controller = MapController();
   var _ready = false;
   var _locating = false;
-  String? _message;
+  LocationFailure? _failure;
 
   @override
   void dispose() {
@@ -53,13 +53,13 @@ class _LocationMapState extends ConsumerState<LocationMap> {
   Future<void> _useMyLocation() async {
     setState(() {
       _locating = true;
-      _message = null;
+      _failure = null;
     });
     final result = await ref.read(locationServiceProvider).current();
     if (!mounted) return;
     setState(() {
       _locating = false;
-      _message = result.failure == null ? null : locationFailureMessage(result.failure!);
+      _failure = result.failure;
     });
     final point = result.point;
     if (point == null) return;
@@ -84,7 +84,9 @@ class _LocationMapState extends ConsumerState<LocationMap> {
             ),
             onMapReady: () => _ready = true,
             onPositionChanged: (camera, hasGesture) {
-              if (hasGesture && !widget.readOnly) widget.onChanged?.call(camera.center);
+              if (!hasGesture || widget.readOnly) return;
+              if (_failure != null) setState(() => _failure = null);
+              widget.onChanged?.call(camera.center);
             },
           ),
           children: [
@@ -109,12 +111,18 @@ class _LocationMapState extends ConsumerState<LocationMap> {
             child: const _MapNote('حرّك الخريطة لتحديد مكان الصالون'),
           ),
         if (widget.readOnly && point == null) const Center(child: _MapNote('لم يحدد الصالون موقعه بعد')),
-        if (_message != null)
+        if (_failure case final failure?)
           PositionedDirectional(
             top: AppSpacing.md + widget.topInset,
             start: AppSpacing.md,
             end: AppSpacing.md,
-            child: _MapNote(_message!, error: true),
+            child: _MapNote(
+              locationFailureMessage(failure),
+              error: true,
+              action: failure == LocationFailure.deniedForever || failure == LocationFailure.serviceDisabled
+                  ? (label: 'فتح الإعدادات', onPressed: () => ref.read(locationSettingsProvider)(failure))
+                  : null,
+            ),
           ),
         if (!widget.readOnly)
           PositionedDirectional(
@@ -172,10 +180,11 @@ class _Pin extends StatelessWidget {
 }
 
 class _MapNote extends StatelessWidget {
-  const _MapNote(this.text, {this.error = false});
+  const _MapNote(this.text, {this.error = false, this.action});
 
   final String text;
   final bool error;
+  final ({String label, VoidCallback onPressed})? action;
 
   @override
   Widget build(BuildContext context) {
@@ -186,10 +195,16 @@ class _MapNote extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.control),
         boxShadow: const [AppColors.cardShadow],
       ),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: AppText.caption.copyWith(color: error ? AppColors.danger : AppColors.text2),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: AppText.caption.copyWith(color: error ? AppColors.danger : AppColors.text2),
+          ),
+          if (action case (:final label, :final onPressed)) TextButton(onPressed: onPressed, child: Text(label)),
+        ],
       ),
     );
   }

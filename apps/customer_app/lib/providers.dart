@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:app_links/app_links.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
@@ -59,9 +61,6 @@ final workingHoursProvider = FutureProvider.autoDispose.family<List<WorkingHours
   (ref, barberId) => ref.watch(barberRepositoryProvider).workingHoursOf(barberId),
 );
 
-/// Number of days a customer can book ahead, today included.
-const bookingDays = 14;
-
 final upcomingClosuresProvider = FutureProvider.autoDispose.family<List<DayClosure>, String>((ref, barberId) {
   final today = AppTime.now();
   return ref
@@ -69,7 +68,7 @@ final upcomingClosuresProvider = FutureProvider.autoDispose.family<List<DayClosu
       .closures(
         barberId,
         from: today,
-        to: today.add(const Duration(days: bookingDays - 1)),
+        to: today.add(const Duration(days: AppConstants.bookingDays - 1)),
       );
 });
 
@@ -80,6 +79,36 @@ final availableSlotsProvider = FutureProvider.autoDispose.family<List<TimeSlot>,
       .watch(bookingRepositoryProvider)
       .availableSlots(barberId: q.barberId, day: DateTime.parse('${q.date}T12:00:00Z'), durationMin: q.durationMin),
 );
+
+/// The earliest free start today or tomorrow for the barber's shortest service, or null when there is none.
+final nextFreeSlotProvider = FutureProvider.autoDispose.family<TimeSlot?, String>((ref, barberId) async {
+  final services = await ref.watch(barberServicesProvider(barberId).future);
+  if (services.isEmpty) return null;
+  final shortest = services.map((s) => s.durationMin).reduce(min);
+  final repository = ref.watch(bookingRepositoryProvider);
+  final today = AppTime.now();
+  for (var offset = 0; offset < 2; offset++) {
+    final slots = await repository.availableSlots(
+      barberId: barberId,
+      day: today.add(Duration(days: offset)),
+      durationMin: shortest,
+    );
+    if (slots.isNotEmpty) return slots.reduce((a, b) => a.startsAt.isBefore(b.startsAt) ? a : b);
+  }
+  return null;
+});
+
+/// The tab the home shell shows: 0 home, 1 حجوزاتي, 2 حسابي.
+final homeTabProvider = NotifierProvider<HomeTab, int>(HomeTab.new);
+
+class HomeTab extends Notifier<int> {
+  static const bookings = 1;
+
+  @override
+  int build() => 0;
+
+  void select(int index) => state = index;
+}
 
 final myBookingsProvider = FutureProvider<List<MyBooking>>((ref) async {
   final userId = ref.watch(currentUserIdProvider);

@@ -11,24 +11,21 @@ class TimeChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(AppRadius.control),
+      borderRadius: BorderRadius.circular(AppRadius.smallButton),
       onTap: () async {
         final picked = await showTimePicker(context: context, initialTime: time);
         if (picked != null) onChanged(picked);
       },
       child: Container(
-        height: AppSizes.cardButton,
+        height: AppSizes.timeChip,
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: AppColors.bg,
-          borderRadius: BorderRadius.circular(AppRadius.control),
+          borderRadius: BorderRadius.circular(AppRadius.smallButton),
           border: Border.all(color: AppColors.border),
         ),
-        child: Text(
-          ArabicFormat.clock(time.hour, time.minute),
-          style: AppText.weight(AppText.caption.copyWith(color: AppColors.text), FontWeight.w700),
-        ),
+        child: Text(ArabicFormat.clock(time.hour, time.minute), style: AppText.buttonCompact),
       ),
     );
   }

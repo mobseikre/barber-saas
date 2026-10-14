@@ -7,6 +7,7 @@ import 'booking_card.dart';
 import 'cancel_reason_sheet.dart';
 import 'close_day_sheet.dart';
 import 'manual_booking_sheet.dart';
+import 'subscription_banner.dart';
 import 'today_bookings_provider.dart';
 
 class TodayBookingsScreen extends ConsumerStatefulWidget {
@@ -32,6 +33,33 @@ class _TodayBookingsScreenState extends ConsumerState<TodayBookingsScreen> {
     } finally {
       if (mounted) setState(() => _busy.remove(bookingId));
     }
+  }
+
+  /// Marks attended or no-show, then offers to undo a wrong tap.
+  Future<void> _mark(Booking booking, BookingStatus status) async {
+    final notifier = ref.read(todayBookingsProvider.notifier);
+    final messenger = ScaffoldMessenger.of(context);
+    var done = false;
+    await _run(booking.id, () async {
+      await (status == BookingStatus.completed ? notifier.markAttended(booking.id) : notifier.markNoShow(booking.id));
+      done = true;
+    });
+    if (!done || !mounted) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          status == BookingStatus.completed
+              ? 'سُجّل حضور ${booking.displayName}'
+              : 'سُجّل عدم حضور ${booking.displayName}',
+        ),
+        action: SnackBarAction(
+          label: 'تراجع',
+          onPressed: () {
+            if (mounted) _run(booking.id, () => notifier.undoStatus(booking.id));
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _cancel(Booking booking) async {
@@ -62,15 +90,23 @@ class _TodayBookingsScreenState extends ConsumerState<TodayBookingsScreen> {
     final bookings = ref.watch(todayBookingsProvider);
     final closure = ref.watch(todayClosureProvider).value;
     final barber = ref.watch(currentBarberProvider).value;
+    final day = ref.watch(bookingsDayProvider);
     ref.watch(minuteTickerProvider);
     final notifier = ref.read(todayBookingsProvider.notifier);
     final list = bookings.value ?? const <Booking>[];
     final now = AppTime.now();
+    final today = AppTime.startOfDay(now);
+    final days = [
+      for (var i = 0; i < AppConstants.bookingDays; i++) AppTime.startOfDay(today.add(Duration(days: i, hours: 12))),
+    ];
+    final dayIndex = days.indexWhere((d) => dbDate(d) == dbDate(day));
+    final isToday = dayIndex == 0;
 
     final active = list.where((b) => b.status != BookingStatus.cancelled).toList();
     final completed = active.where((b) => b.status == BookingStatus.completed).length;
     final remaining = active.where((b) => b.status == BookingStatus.confirmed).length;
-    final next = list.where((b) => b.isOpen && b.endsAt.isAfter(now)).firstOrNull;
+    final next = isToday ? list.where((b) => b.isOpen && b.endsAt.isAfter(now)).firstOrNull : null;
+    final bookable = barber?.isBookable ?? true;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
@@ -83,44 +119,21 @@ class _TodayBookingsScreenState extends ConsumerState<TodayBookingsScreen> {
               slivers: [
                 SliverToBoxAdapter(
                   child: AppHeader(
-                    title: 'حجوزات اليوم',
-                    subtitle: ArabicFormat.dayDate(now),
-                    trailing: PopupMenuButton<String>(
-                      tooltip: 'المزيد',
-                      enabled: closure == null,
-                      color: AppColors.surface,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.control)),
-                      onSelected: (v) => closeRestOfTodayFlow(context, ref),
-                      itemBuilder: (_) => [
-                        PopupMenuItem(
-                          value: 'close',
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.door_front_door_outlined,
-                                color: AppColors.danger,
-                                size: AppSizes.iconMd,
-                              ),
-                              const SizedBox(width: AppSpacing.sm),
-                              Flexible(
-                                child: Text(
-                                  'إغلاق بقية اليوم',
-                                  style: AppText.bodyStrong.copyWith(color: AppColors.danger),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      child: LetterAvatar(
-                        name: barber?.displayName ?? '',
-                        imageUrl: publicStorageUrl(barber?.photoUrl),
-                      ),
+                    title: isToday ? 'حجوزات اليوم' : 'حجوزات ${DayTile.labelFor(dayIndex, day)}',
+                    subtitle: ArabicFormat.dayDate(day),
+                    trailing: LetterAvatar(
+                      name: barber?.displayName ?? '',
+                      imageUrl: publicStorageUrl(barber?.photoUrl),
+                      background: AppColors.bluePressed,
                     ),
                     bottom: Row(
                       children: [
                         Expanded(
-                          child: StatCard(label: 'حجز اليوم', value: '${active.length}', compact: true),
+                          child: StatCard(
+                            label: isToday ? 'حجز اليوم' : 'الحجوزات',
+                            value: '${active.length}',
+                            compact: true,
+                          ),
                         ),
                         const SizedBox(width: AppSpacing.sm),
                         Expanded(
@@ -139,11 +152,55 @@ class _TodayBookingsScreenState extends ConsumerState<TodayBookingsScreen> {
                     ),
                   ),
                 ),
+                SliverPadding(
+                  padding: const EdgeInsets.only(top: AppSpacing.xl),
+                  sliver: SliverToBoxAdapter(
+                    child: SizedBox(
+                      height: AppSizes.numberBox,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screen),
+                        itemCount: days.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
+                        itemBuilder: (_, i) => DayTile(
+                          label: DayTile.labelFor(i, days[i]),
+                          day: days[i].day,
+                          selected: i == dayIndex,
+                          onTap: () => ref.read(bookingsDayProvider.notifier).select(days[i]),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (isToday && closure == null && bookable)
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(AppSpacing.screen, AppSpacing.md, AppSpacing.screen, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: ActionButton(
+                        label: 'إغلاق بقية اليوم',
+                        icon: Icons.door_front_door_outlined,
+                        foreground: AppColors.danger,
+                        background: AppColors.surface,
+                        border: AppColors.border,
+                        onPressed: () => closeRestOfTodayFlow(context, ref),
+                      ),
+                    ),
+                  ),
+                if (!bookable)
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(AppSpacing.screen, AppSpacing.xl, AppSpacing.screen, 0),
+                    sliver: SliverToBoxAdapter(child: SubscriptionBanner(barber: barber!)),
+                  ),
                 if (closure != null)
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(AppSpacing.screen, AppSpacing.xl, AppSpacing.screen, 0),
                     sliver: SliverToBoxAdapter(
-                      child: _DayClosedBanner(closure: closure, reopening: _reopening, onReopen: _reopen),
+                      child: _DayClosedBanner(
+                        closure: closure,
+                        isToday: isToday,
+                        reopening: _reopening,
+                        onReopen: _reopen,
+                      ),
                     ),
                   ),
                 if (bookings.isLoading && list.isEmpty)
@@ -162,7 +219,10 @@ class _TodayBookingsScreenState extends ConsumerState<TodayBookingsScreen> {
                   SliverFillRemaining(
                     hasScrollBody: false,
                     child: Center(
-                      child: Text('لا توجد حجوزات اليوم', style: AppText.h3.copyWith(color: AppColors.text3)),
+                      child: Text(
+                        isToday ? 'لا توجد حجوزات اليوم' : 'لا توجد حجوزات في هذا اليوم',
+                        style: AppText.h3.copyWith(color: AppColors.text3),
+                      ),
                     ),
                   )
                 else
@@ -182,8 +242,8 @@ class _TodayBookingsScreenState extends ConsumerState<TodayBookingsScreen> {
                           booking: b,
                           isNext: b.id == next?.id,
                           busy: _busy.contains(b.id),
-                          onAttended: () => _run(b.id, () => notifier.markAttended(b.id)),
-                          onNoShow: () => _run(b.id, () => notifier.markNoShow(b.id)),
+                          onAttended: () => _mark(b, BookingStatus.completed),
+                          onNoShow: () => _mark(b, BookingStatus.noShow),
                           onCancel: () => _cancel(b),
                         );
                       },
@@ -192,17 +252,18 @@ class _TodayBookingsScreenState extends ConsumerState<TodayBookingsScreen> {
               ],
             ),
           ),
-          PositionedDirectional(
-            start: AppSpacing.screen,
-            end: AppSpacing.screen,
-            bottom: bottomInset + AppSpacing.md,
-            child: AppButton(
-              label: 'إضافة حجز يدوي',
-              icon: Icons.add_rounded,
-              variant: AppButtonVariant.accent,
-              onPressed: () => showManualBookingSheet(context),
+          if (bookable)
+            PositionedDirectional(
+              start: AppSpacing.screen,
+              end: AppSpacing.screen,
+              bottom: bottomInset + AppSpacing.md,
+              child: AppButton(
+                label: 'إضافة حجز يدوي',
+                icon: Icons.add_rounded,
+                variant: AppButtonVariant.accent,
+                onPressed: () => showManualBookingSheet(context, day: day),
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -210,9 +271,15 @@ class _TodayBookingsScreenState extends ConsumerState<TodayBookingsScreen> {
 }
 
 class _DayClosedBanner extends StatelessWidget {
-  const _DayClosedBanner({required this.closure, required this.reopening, required this.onReopen});
+  const _DayClosedBanner({
+    required this.closure,
+    required this.isToday,
+    required this.reopening,
+    required this.onReopen,
+  });
 
   final DayClosure closure;
+  final bool isToday;
   final bool reopening;
   final VoidCallback onReopen;
 
@@ -228,18 +295,20 @@ class _DayClosedBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('اليوم مغلق', style: AppText.cardTitle),
+                Text(isToday ? 'اليوم مغلق' : 'هذا اليوم مغلق', style: AppText.cardTitle),
                 Text(
                   from == null
-                      ? 'لا يمكن للزبائن الحجز اليوم'
+                      ? 'لا يمكن للزبائن الحجز في هذا اليوم'
                       : 'لا يمكن للزبائن الحجز بعد ${ArabicFormat.clock(from.hour, from.minute)}',
                   style: AppText.caption.copyWith(color: AppColors.text3),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          TextButton(onPressed: reopening ? null : onReopen, child: const Text('إعادة الفتح')),
+          if (isToday) ...[
+            const SizedBox(width: AppSpacing.sm),
+            TextButton(onPressed: reopening ? null : onReopen, child: const Text('إعادة الفتح')),
+          ],
         ],
       ),
     );

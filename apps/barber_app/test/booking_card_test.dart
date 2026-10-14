@@ -52,7 +52,7 @@ void main() {
 
     await tester.tap(find.text('حضر'));
     await tester.tap(find.text('لم يحضر'));
-    await tester.tap(tooltip('إلغاء الحجز'));
+    await tester.tap(find.widgetWithText(ActionButton, 'إلغاء الحجز'));
     expect(taps, ['attended', 'no_show', 'cancel']);
   });
 
@@ -61,7 +61,7 @@ void main() {
 
     expect(find.text('حضر'), findsNothing);
     expect(find.text('لم يحضر'), findsNothing);
-    expect(tooltip('إلغاء الحجز'), findsOneWidget);
+    expect(find.widgetWithText(ActionButton, 'إلغاء الحجز'), findsOneWidget);
     expect(tooltip('اتصال'), findsNothing, reason: 'no phone on this booking');
   });
 
@@ -80,7 +80,7 @@ void main() {
     expect(find.byType(StatusBadge), findsOneWidget);
     expect(find.text('مكتمل'), findsOneWidget);
     expect(tooltip('اتصال'), findsNothing);
-    expect(tooltip('إلغاء الحجز'), findsNothing);
+    expect(find.widgetWithText(ActionButton, 'إلغاء الحجز'), findsNothing);
     expect(find.text('حضر'), findsNothing);
   });
 
@@ -110,7 +110,7 @@ void main() {
 
     await tester.tap(find.text('حضر'), warnIfMissed: false);
     await tester.tap(find.text('لم يحضر'), warnIfMissed: false);
-    await tester.tap(tooltip('إلغاء الحجز'), warnIfMissed: false);
+    await tester.tap(find.widgetWithText(ActionButton, 'إلغاء الحجز'), warnIfMissed: false);
     expect(taps, isEmpty);
   });
 }

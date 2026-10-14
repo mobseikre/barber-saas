@@ -30,12 +30,13 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   var _submitting = false;
   String? _error;
   var _blocked = false;
+  var _unbookable = false;
 
   @override
   void initState() {
     super.initState();
     final now = AppTime.now();
-    _days = [for (var i = 0; i < bookingDays; i++) AppTime.at(now.add(Duration(days: i)), 12, 0)];
+    _days = [for (var i = 0; i < AppConstants.bookingDays; i++) AppTime.at(now.add(Duration(days: i)), 12, 0)];
   }
 
   String get _barberId => widget.barber.id;
@@ -80,13 +81,22 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      final taken = e is PostgrestException && e.message == 'slot_not_available';
+      final code = e is PostgrestException ? e.message : null;
+      final taken = code == 'slot_not_available' || (e is PostgrestException && e.code == '23P01');
       setState(() {
-        _error = bookingErrorMessage(e);
-        _blocked = e is PostgrestException && e.message == 'customer_blocked';
+        _error = taken
+            ? bookingErrorMessage(const PostgrestException(message: 'slot_not_available'))
+            : bookingErrorMessage(e);
+        _blocked = code == 'customer_blocked';
+        _unbookable = code == 'barber_not_bookable';
         if (taken) _slot = null;
       });
       if (taken) ref.invalidate(availableSlotsProvider(query));
+      if (_unbookable) {
+        ref.invalidate(salonBarbersProvider(widget.barber.salonId));
+        ref.invalidate(salonListingsProvider(widget.barber.salonId));
+        ref.invalidate(directoryProvider);
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -158,9 +168,15 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
               ].join(' · '),
         price: service?.price,
         error: _error,
-        onContactSupport: _blocked ? () => contactSupport(context) : null,
+        errorAction: _blocked
+            ? (label: 'تواصل مع الدعم', onPressed: () => contactSupport(context))
+            : _unbookable
+            ? (label: 'العودة لاختيار حلاق', onPressed: () => Navigator.of(context).pop())
+            : null,
         loading: _submitting,
-        onConfirm: service == null || slot == null || query == null ? null : () => _confirm(service, slot, query),
+        onConfirm: _unbookable || service == null || slot == null || query == null
+            ? null
+            : () => _confirm(service, slot, query),
       ),
     );
   }
@@ -229,12 +245,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
               scrollDirection: Axis.horizontal,
               itemCount: _days.length,
               separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.sm),
-              itemBuilder: (_, i) => _DayTile(
-                label: switch (i) {
-                  0 => 'اليوم',
-                  1 => 'غداً',
-                  _ => ArabicFormat.weekday(_days[i]),
-                },
+              itemBuilder: (_, i) => DayTile(
+                label: DayTile.labelFor(i, _days[i]),
                 day: _days[i].day,
                 selected: i == dayIndex,
                 onTap: open[i]
@@ -352,54 +364,6 @@ class _BarberRow extends StatelessWidget {
   }
 }
 
-class _DayTile extends StatelessWidget {
-  const _DayTile({required this.label, required this.day, required this.selected, required this.onTap});
-
-  final String label;
-  final int day;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final enabled = onTap != null;
-    final fg = selected ? AppColors.surface : (enabled ? AppColors.text : AppColors.text3);
-    return Semantics(
-      selected: selected,
-      enabled: enabled,
-      button: true,
-      child: Material(
-        color: selected ? AppColors.blue900 : (enabled ? AppColors.surface : AppColors.dividerSoft),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.control),
-          side: BorderSide(color: selected ? AppColors.blue900 : AppColors.border, width: AppSizes.border),
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(AppRadius.control),
-          child: SizedBox(
-            width: AppSizes.numberBox,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(label, style: AppText.label.copyWith(color: selected ? AppColors.red300 : AppColors.text3)),
-                Text(
-                  '$day',
-                  style: AppText.time.copyWith(
-                    color: fg,
-                    decoration: enabled ? null : TextDecoration.lineThrough,
-                    decorationColor: AppColors.text3,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _SlotGrid extends StatelessWidget {
   const _SlotGrid({required this.slots, required this.selected, required this.onSelected, required this.onRetry});
 
@@ -490,7 +454,7 @@ class _ConfirmBar extends StatelessWidget {
     required this.summary,
     required this.price,
     required this.error,
-    this.onContactSupport,
+    this.errorAction,
     required this.loading,
     required this.onConfirm,
   });
@@ -498,7 +462,7 @@ class _ConfirmBar extends StatelessWidget {
   final String? summary;
   final double? price;
   final String? error;
-  final VoidCallback? onContactSupport;
+  final ({String label, VoidCallback onPressed})? errorAction;
   final bool loading;
   final VoidCallback? onConfirm;
 
@@ -537,15 +501,10 @@ class _ConfirmBar extends StatelessWidget {
           if (error != null) ...[
             const SizedBox(height: AppSpacing.sm),
             Text(error!, style: AppText.caption.copyWith(color: AppColors.danger)),
-            if (onContactSupport != null)
+            if (errorAction case (:final label, :final onPressed))
               Align(
                 alignment: AlignmentDirectional.centerStart,
-                child: AppButton(
-                  label: 'تواصل مع الدعم',
-                  variant: AppButtonVariant.text,
-                  compact: true,
-                  onPressed: onContactSupport,
-                ),
+                child: AppButton(label: label, variant: AppButtonVariant.text, compact: true, onPressed: onPressed),
               ),
           ],
           const SizedBox(height: AppSpacing.md),

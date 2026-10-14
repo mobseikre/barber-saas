@@ -4,12 +4,20 @@ import 'package:shared/shared.dart';
 
 import 'today_bookings_provider.dart';
 
-Future<void> showManualBookingSheet(BuildContext context) {
-  return showAppBottomSheet<void>(context: context, builder: (_) => const _ManualBookingSheet());
+const _firstStart = TimeOfDay(hour: 10, minute: 0);
+
+/// Adds a booking on [day]: from the next quarter hour today, or from the morning on a later day.
+Future<void> showManualBookingSheet(BuildContext context, {required DateTime day}) {
+  return showAppBottomSheet<void>(
+    context: context,
+    builder: (_) => _ManualBookingSheet(day: day),
+  );
 }
 
 class _ManualBookingSheet extends ConsumerStatefulWidget {
-  const _ManualBookingSheet();
+  const _ManualBookingSheet({required this.day});
+
+  final DateTime day;
 
   @override
   ConsumerState<_ManualBookingSheet> createState() => _ManualBookingSheetState();
@@ -19,7 +27,9 @@ class _ManualBookingSheetState extends ConsumerState<_ManualBookingSheet> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
   BarberService? _service;
-  DateTime _startsAt = AppTime.nextQuarterHour(AppTime.now());
+  late DateTime _startsAt = dbDate(widget.day) == dbDate(AppTime.now())
+      ? AppTime.nextQuarterHour(AppTime.now())
+      : AppTime.at(widget.day, _firstStart.hour, _firstStart.minute);
   var _loading = false;
   String? _error;
 
@@ -57,7 +67,7 @@ class _ManualBookingSheetState extends ConsumerState<_ManualBookingSheet> {
   Widget build(BuildContext context) {
     final services = ref.watch(barberServicesProvider);
     final noServices = services.value?.isEmpty ?? false;
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(AppSpacing.screen, 0, AppSpacing.screen, AppSpacing.screen),
       child: Form(
         key: _formKey,
@@ -66,7 +76,10 @@ class _ManualBookingSheetState extends ConsumerState<_ManualBookingSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('إضافة حجز يدوي', style: AppText.h2),
-            Text('لزبون حضر بدون التطبيق أو اتصل بك', style: AppText.caption.copyWith(color: AppColors.text3)),
+            Text(
+              'لزبون حضر بدون التطبيق أو اتصل بك · ${ArabicFormat.dayDate(widget.day)}',
+              style: AppText.caption.copyWith(color: AppColors.text3),
+            ),
             const SizedBox(height: AppSpacing.lg),
             AppTextField(
               label: 'اسم الزبون',

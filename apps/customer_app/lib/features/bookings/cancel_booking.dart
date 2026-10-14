@@ -5,8 +5,14 @@ import 'package:shared/shared.dart';
 import '../../data/my_bookings_repository.dart';
 import '../../providers.dart';
 
-/// Confirms, cancels and refreshes the list; inside the cancellation window it explains why instead.
-Future<void> cancelBookingFlow(BuildContext context, WidgetRef ref, MyBooking item) async {
+/// Confirms, cancels and waits for the refreshed list; inside the cancellation window it explains why instead.
+/// [onBusy] is told when the request and the refresh start and end, so the card can show it is working.
+Future<void> cancelBookingFlow(
+  BuildContext context,
+  WidgetRef ref,
+  MyBooking item, {
+  ValueChanged<bool>? onBusy,
+}) async {
   if (!item.canCancel) return _explainRefusal(context, item);
   final confirmed = await showDialog<bool>(
     context: context,
@@ -31,20 +37,24 @@ Future<void> cancelBookingFlow(BuildContext context, WidgetRef ref, MyBooking it
   if (confirmed != true || !context.mounted) return;
 
   final messenger = ScaffoldMessenger.of(context);
+  onBusy?.call(true);
+  Object? failure;
   try {
     await ref.read(bookingRepositoryProvider).cancel(item.booking.id);
-  } on PostgrestException catch (e) {
-    if (!context.mounted) return;
-    ref.invalidate(myBookingsProvider);
-    if (e.message == 'cancellation_window_passed') return _explainRefusal(context, item);
-    messenger.showSnackBar(SnackBar(content: Text(bookingErrorMessage(e))));
-    return;
   } catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text(bookingErrorMessage(e))));
-    return;
+    failure = e;
   }
-  messenger.showSnackBar(const SnackBar(content: Text('تم إلغاء الحجز')));
-  if (context.mounted) ref.invalidate(myBookingsProvider);
+  if ((failure == null || failure is PostgrestException) && context.mounted) {
+    await ref.refresh(myBookingsProvider.future).catchError((_) => const <MyBooking>[]);
+  }
+  onBusy?.call(false);
+  if (failure == null) {
+    messenger.showSnackBar(const SnackBar(content: Text('تم إلغاء الحجز')));
+  } else if (failure is PostgrestException && failure.message == 'cancellation_window_passed') {
+    if (context.mounted) await _explainRefusal(context, item);
+  } else {
+    messenger.showSnackBar(SnackBar(content: Text(bookingErrorMessage(failure))));
+  }
 }
 
 Future<void> _explainRefusal(BuildContext context, MyBooking item) {

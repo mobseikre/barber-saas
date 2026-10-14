@@ -37,7 +37,7 @@ class RegistrationDetails extends ConsumerWidget {
               },
             ),
             const SizedBox(height: AppSpacing.xl),
-            SalonPicker(selected: salon, onChanged: draft.selectSalon),
+            SalonPicker(selected: salon, onChanged: draft.selectSalon, onNameChanged: (v) => draft.salonName = v),
             const SizedBox(height: AppSpacing.xl),
             if (salon != null) _JoinedSalon(salon: salon) else _NewSalon(draft: draft),
           ],

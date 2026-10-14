@@ -44,7 +44,29 @@ void main() {
     await type(tester, 'صالون غير موجود');
     await tester.pumpAndSettle();
 
-    expect(find.text('لا يوجد صالون بهذا الاسم، سيُنشأ صالون جديد باسمك'), findsOneWidget);
+    expect(find.text('لا يوجد صالون بهذا الاسم، سيُنشأ صالون جديد باسم «صالون غير موجود»'), findsOneWidget);
+  });
+
+  testWidgets('the typed name is reported for a new salon, and a picked salon reports its own name', (tester) async {
+    search = _FakeSearch();
+    final names = <String>[];
+    await pumpPhone(
+      tester,
+      testApp(
+        home: Scaffold(
+          body: SalonPicker(selected: null, onChanged: (_) {}, onNameChanged: names.add),
+        ),
+        overrides: [barberRepositoryProvider.overrideWithValue(search)],
+      ),
+    );
+    search.next = Completer()..complete([salon('صالون الأناقة')]);
+
+    await type(tester, ' الأناقة ');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('صالون الأناقة'));
+    await tester.pumpAndSettle();
+
+    expect(names, ['الأناقة', 'صالون الأناقة']);
   });
 
   testWidgets('a failed search shows an error line instead of looking empty', (tester) async {
@@ -57,12 +79,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('تعذّر البحث، تأكد من الاتصال وحاول مرة أخرى'), findsOneWidget);
-    expect(
-      find.textContaining('سيُنشأ صالون جديد باسمك'),
-      findsOneWidget,
-      reason: 'only the general hint, not the empty hint',
-    );
-    expect(find.text('لا يوجد صالون بهذا الاسم، سيُنشأ صالون جديد باسمك'), findsNothing);
+    expect(find.textContaining('لا يوجد صالون بهذا الاسم'), findsNothing, reason: 'only the general hint');
   });
 
   testWidgets('a slow older search cannot overwrite the latest results', (tester) async {

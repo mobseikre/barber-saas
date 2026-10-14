@@ -11,6 +11,7 @@ import '../salon/salon_screen.dart';
 import 'home_screen.dart';
 
 /// The tabs, plus what lives as long as the app: push registration, notices while open and barber links.
+/// حجوزاتي reloads whenever it is opened and whenever the app comes back to the foreground.
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
 
@@ -20,17 +21,25 @@ class HomeShell extends ConsumerStatefulWidget {
 
 class _HomeShellState extends ConsumerState<HomeShell> {
   StreamSubscription<Uri>? _links;
+  late final AppLifecycleListener _lifecycle;
 
   @override
   void initState() {
     super.initState();
     _links = ref.read(appLinksProvider).listen(_openLink);
+    _lifecycle = AppLifecycleListener(onResume: () => ref.invalidate(myBookingsProvider));
   }
 
   @override
   void dispose() {
     _links?.cancel();
+    _lifecycle.dispose();
     super.dispose();
+  }
+
+  void _selectTab(int index) {
+    if (index == HomeTab.bookings) ref.invalidate(myBookingsProvider);
+    ref.read(homeTabProvider.notifier).select(index);
   }
 
   /// Opens the salon page on the barber of a QR code link.
@@ -70,9 +79,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       if (text.isNotEmpty) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
     });
 
-    return const TabShell(
+    return TabShell(
       variant: AppBottomNavVariant.light,
-      tabs: [
+      index: ref.watch(homeTabProvider),
+      onChanged: _selectTab,
+      tabs: const [
         (icon: Icons.home_outlined, label: 'الرئيسية', screen: HomeScreen()),
         (icon: Icons.calendar_today_outlined, label: 'حجوزاتي', screen: MyBookingsTab()),
         (icon: Icons.person_outline_rounded, label: 'حسابي', screen: AccountTab()),

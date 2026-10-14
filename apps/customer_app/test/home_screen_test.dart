@@ -68,6 +68,33 @@ void main() {
     expect(find.text('حلاقون قريبون منك'), findsOneWidget);
   });
 
+  testWidgets('the search keyboard stays closed after visiting a barber and closes on scroll', (tester) async {
+    final deps = TestDeps();
+    await pumpPhone(tester, deps.app(const HomeShell()));
+
+    await tester.tap(find.byType(TextField));
+    await tester.enterText(find.byType(TextField), 'علي');
+    await tester.pumpAndSettle();
+    expect(tester.testTextInput.isVisible, isTrue);
+
+    await tester.tap(find.byType(BarberCard).first);
+    await tester.pumpAndSettle();
+    expect(find.byType(SalonScreen), findsOneWidget);
+    await tester.tap(find.byType(AppBackButton));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SalonScreen), findsNothing);
+    expect(tester.testTextInput.isVisible, isFalse, reason: 'focus is not handed back to the search field');
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'علي');
+
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    expect(tester.testTextInput.isVisible, isTrue);
+    await tester.drag(find.byType(ListView).first, const Offset(0, -300));
+    await tester.pumpAndSettle();
+    expect(tester.testTextInput.isVisible, isFalse);
+  });
+
   testWidgets('the city, area chips and search narrow the list', (tester) async {
     final deps = TestDeps();
     await pumpPhone(tester, deps.app(const HomeShell()));
@@ -88,6 +115,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(cardNames(tester), ['عمر البرعصي']);
     expect(find.text('الفويهات'), findsWidgets);
+  });
+
+  testWidgets('a search finds barbers in every city and leaves the city and area filters aside', (tester) async {
+    final deps = TestDeps();
+    await pumpPhone(tester, deps.app(const HomeShell()));
+    await tester.tap(find.text('قرقارش'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'عمر');
+    await tester.pumpAndSettle();
+
+    expect(cardNames(tester), ['عمر البرعصي'], reason: 'a Benghazi barber while Tripoli and قرقارش are chosen');
+    expect(find.text('نتائج البحث في كل المدن'), findsOneWidget);
+    expect(find.text('كل المناطق'), findsNothing, reason: 'the area chips do not apply while searching');
+
+    await tester.enterText(find.byType(TextField), '');
+    await tester.pumpAndSettle();
+    expect(cardNames(tester), ['سالم الترهوني'], reason: 'the filters come back with an empty search');
   });
 
   testWidgets('top rated reorders the list', (tester) async {
@@ -175,5 +220,30 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('سجّل الدخول لترى حجوزاتك'), findsOneWidget);
+  });
+
+  testWidgets('the filter button keeps only open or VIP barbers and shows a dot while it is on', (tester) async {
+    final deps = TestDeps();
+    deps.directory.todayValue = {'ali': BarberToday(fromPrice: 15, hours: weekHours('ali').first)};
+    await pumpPhone(tester, deps.app(const HomeShell()));
+    expect(cardNames(tester).length, 4);
+
+    await tester.tap(find.byTooltip('تصفية'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(AppSwitch).first);
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+
+    expect(cardNames(tester), ['علي القماطي']);
+
+    await tester.tap(find.byTooltip('تصفية'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('إعادة الضبط'));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+
+    expect(cardNames(tester).length, 4);
   });
 }

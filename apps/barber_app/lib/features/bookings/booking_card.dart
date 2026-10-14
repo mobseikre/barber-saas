@@ -24,12 +24,7 @@ class BookingCard extends StatelessWidget {
     final open = booking.isOpen;
     final started = booking.hasStarted;
     final service = [?booking.serviceName, ArabicFormat.minutes(booking.durationMin)].join(' · ');
-    final cancelButton = SquareIconButton(
-      icon: Icons.close_rounded,
-      tooltip: 'إلغاء الحجز',
-      outlined: true,
-      onPressed: busy ? null : onCancel,
-    );
+    final cancelButton = ActionButton.cancel(height: AppSizes.cardButton, onPressed: busy ? null : onCancel);
 
     return AppCard(
       highlighted: isNext,
@@ -83,9 +78,12 @@ class BookingCard extends StatelessWidget {
                 )
               else if (!open)
                 StatusBadge(booking.status),
-              if (open && !started) ...[const SizedBox(width: AppSpacing.sm), cancelButton],
             ],
           ),
+          if (open && !started) ...[
+            const SizedBox(height: AppSpacing.md),
+            SizedBox(width: double.infinity, child: cancelButton),
+          ],
           if (open && started) ...[
             const SizedBox(height: AppSpacing.md),
             Row(
@@ -98,7 +96,7 @@ class BookingCard extends StatelessWidget {
                   child: ActionButton.noShow(height: AppSizes.cardButton, onPressed: busy ? null : onNoShow),
                 ),
                 const SizedBox(width: AppSpacing.sm),
-                cancelButton,
+                Expanded(child: cancelButton),
               ],
             ),
           ],

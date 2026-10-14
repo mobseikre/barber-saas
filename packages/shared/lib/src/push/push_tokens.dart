@@ -9,6 +9,9 @@ import 'push_messaging.dart';
 class PushTokens {
   PushTokens(this._messaging, this._repository);
 
+  /// How long sign-out waits for the network before it goes ahead without deleting the token.
+  static const unregisterTimeout = Duration(seconds: 5);
+
   final PushMessaging _messaging;
   final DeviceTokenRepository Function() _repository;
 
@@ -47,12 +50,12 @@ class PushTokens {
     _refresh = null;
     if (token == null) return;
     try {
-      await _repository().unregister(token);
+      await _repository().unregister(token).timeout(unregisterTimeout);
     } catch (e) {
       debugPrint('Push token not deleted: $e');
     }
     try {
-      await _messaging.deleteToken();
+      await _messaging.deleteToken().timeout(unregisterTimeout);
     } catch (e) {
       debugPrint('Device token not reset: $e');
     }

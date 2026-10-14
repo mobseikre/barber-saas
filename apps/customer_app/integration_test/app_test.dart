@@ -24,6 +24,7 @@ import 'package:customer_app/providers.dart';
 
 const _watch = bool.fromEnvironment('WATCH');
 const _aliId = '30000000-0000-0000-0000-000000000001';
+const _walidId = '30000000-0000-0000-0000-000000000008';
 const _slotPattern = r'^\d{1,2}:\d{2} [صم]$';
 
 class _FixedLocation implements LocationService {
@@ -59,7 +60,7 @@ String _randomPhone() => '0917${Random().nextInt(900000) + 100000}';
 
 /// The first day after today that علي works (he takes Friday off), as the label on its day tile.
 ({DateTime day, String label}) _bookingDay() {
-  for (var i = 1; i < bookingDays; i++) {
+  for (var i = 1; i < AppConstants.bookingDays; i++) {
     final day = AppTime.at(AppTime.now().add(Duration(days: i)), 12, 0);
     if (day.weekday != DateTime.friday) {
       return (day: day, label: i == 1 ? 'غداً' : ArabicFormat.weekday(day));
@@ -86,9 +87,14 @@ Future<void> _waitFor(WidgetTester tester, Finder finder, {Duration timeout = co
   await _pause(tester);
 }
 
+/// Scrolls [finder] to the middle of the screen; at the top edge it sits under the status bar,
+/// where iOS takes the tap to scroll back to the top.
+Future<void> _scrollIntoView(WidgetTester tester, Finder finder) =>
+    Scrollable.ensureVisible(tester.element(finder.first), alignment: 0.5);
+
 Future<void> _tap(WidgetTester tester, Finder finder) async {
   await _waitFor(tester, finder);
-  await tester.ensureVisible(finder.first);
+  await _scrollIntoView(tester, finder);
   await tester.pump(const Duration(milliseconds: 300));
   await tester.tap(finder.first);
   await tester.pump(const Duration(milliseconds: 300));
@@ -99,13 +105,13 @@ Future<void> _tap(WidgetTester tester, Finder finder) async {
 Future<void> _enter(WidgetTester tester, Finder field, String text) async {
   await _waitFor(tester, field);
   final editable = find.descendant(of: field, matching: find.byType(EditableText));
-  await tester.ensureVisible(field);
+  await _scrollIntoView(tester, field);
   await tester.pump(const Duration(milliseconds: 300));
   String? typed;
   for (var attempt = 0; attempt < 3 && typed != text; attempt++) {
     await tester.enterText(field, text);
     await tester.pump(const Duration(milliseconds: 600));
-    await tester.ensureVisible(field);
+    await _scrollIntoView(tester, field);
     await tester.pump(const Duration(milliseconds: 300));
     typed = editable.evaluate().map((e) => (e.widget as EditableText).controller.text).firstOrNull;
   }
@@ -123,6 +129,7 @@ Future<void> _launch(
   WidgetTester tester, {
   LocationResult location = _inTripoli,
   Stream<bool> connectivity = const Stream.empty(),
+  Stream<Uri>? links,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -130,6 +137,7 @@ Future<void> _launch(
       overrides: [
         locationServiceProvider.overrideWithValue(_FixedLocation(location)),
         connectivityProvider.overrideWith((_) => connectivity),
+        if (links != null) appLinksProvider.overrideWithValue(links),
       ],
       child: const CustomerApp(),
     ),
@@ -272,6 +280,28 @@ void main() {
     expect(find.text('محمد السويحلي'), findsOneWidget);
     expect(find.text('غير متاح للحجز'), findsOneWidget);
     expect(find.text('احجز الآن'), findsOneWidget);
+  });
+
+  testWidgets('a QR link to a barber who cannot be booked opens the salon without choosing someone else', (
+    tester,
+  ) async {
+    final links = StreamController<Uri>();
+    addTearDown(links.close);
+    await _launch(tester, links: links.stream);
+
+    links.add(barberLink(_walidId));
+    await _waitFor(tester, find.text('وليد الشريف غير متاح للحجز حالياً'));
+
+    expect(find.text('صالون الأناقة'), findsOneWidget);
+    expect(find.text('اختر حلاقاً آخر من الصالون'), findsOneWidget);
+    expect(find.text('اختر حلاقاً متاحاً'), findsOneWidget);
+    expect(find.textContaining('خدمات وأسعار'), findsNothing);
+    expect(tester.widget<FilledButton>(_button('احجز الآن')).onPressed, isNull);
+
+    await _tap(tester, find.text('علي القماطي'));
+    await _waitFor(tester, find.text('خدمات وأسعار علي'));
+    expect(find.text('مع علي'), findsOneWidget);
+    expect(tester.widget<FilledButton>(_button('احجز الآن')).onPressed, isNotNull);
   });
 
   testWidgets('a visitor signs up at confirm and the same booking is confirmed', (tester) async {

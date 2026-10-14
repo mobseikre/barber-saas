@@ -85,11 +85,25 @@ void main() {
     expect(repo.registrations.single, {
       'name': 'محمد السويحلي',
       'salon': null,
+      'salonName': null,
       'area': 'area-1',
       'address': 'شارع النصر',
       'lat': 32.9,
       'lng': 13.2,
     });
+  });
+
+  testWidgets('the salon name typed in the search names the new salon', (tester) async {
+    await pumpScreen(tester);
+
+    await tester.enterText(find.byType(TextField).at(1), '  صالون النخبة ');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    expect(find.text('لا يوجد صالون بهذا الاسم، سيُنشأ صالون جديد باسم «صالون النخبة»'), findsOneWidget);
+    await submit(tester);
+
+    expect(repo.registrations.single['salonName'], 'صالون النخبة');
+    expect(repo.registrations.single['salon'], isNull);
   });
 
   testWidgets('a new salon can be registered without a location', (tester) async {
@@ -127,6 +141,7 @@ void main() {
     expect(repo.registrations.single, {
       'name': 'محمد السويحلي',
       'salon': 'salon-1',
+      'salonName': null,
       'area': null,
       'address': null,
       'lat': null,

@@ -9,6 +9,9 @@ import '../location/salon_location_controller.dart';
 /// What a barber chooses besides their account: photo, an existing salon or the location of a new one.
 class RegistrationDraft extends ChangeNotifier {
   Salon? salon;
+
+  /// What the barber typed in the salon search, the name of the new salon when none is picked.
+  String salonName = '';
   PickedPhoto? photo;
   final location = SalonLocationController();
 
@@ -39,6 +42,7 @@ Future<bool> registerWithDraft(WidgetRef ref, {required String displayName, requ
   final barber = await barbers.registerBarber(
     displayName: displayName,
     salonId: joined?.id,
+    salonName: joined == null && draft.salonName.isNotEmpty ? draft.salonName : null,
     areaId: joined == null ? location.areaId : null,
     address: joined == null && address.isNotEmpty ? address : null,
     latitude: joined == null ? location.point?.latitude : null,

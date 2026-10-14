@@ -22,6 +22,7 @@ class AuthGate extends ConsumerWidget {
     ref.listen(pushNoticesProvider, (_, next) {
       final notice = next.value;
       if (notice == null) return;
+      if (notice.type == 'barber_activated') ref.invalidate(currentBarberProvider);
       ref.invalidate(todayBookingsProvider);
       final text = [notice.title, notice.body].nonNulls.join('\n');
       if (text.isNotEmpty) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
@@ -41,7 +42,11 @@ class AuthGate extends ConsumerWidget {
       loading: () => const _Splash(),
       error: (e, _) => _Retry(message: authErrorMessage(e), onRetry: () => ref.invalidate(currentBarberProvider)),
       data: (b) {
-        if (b != null) return b.isBookable ? const HomeShell() : PendingActivationScreen(barber: b);
+        if (b != null) {
+          return b.status == BarberStatus.pending || b.status == BarberStatus.rejected
+              ? PendingActivationScreen(barber: b)
+              : const HomeShell();
+        }
         final profile = ref.watch(currentProfileProvider);
         return profile.when(
           loading: () => const _Splash(),

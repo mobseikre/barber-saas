@@ -12,6 +12,32 @@ void main() {
     expect(ArabicFormat.days(30), '30 يوماً');
   });
 
+  test('ArabicFormat.planName names the seeded plans and any other length', () {
+    expect(ArabicFormat.planName(1), 'الباقة الشهرية');
+    expect(ArabicFormat.planName(3), 'الباقة الربع سنوية');
+    expect(ArabicFormat.planName(6), 'الباقة النصف سنوية');
+    expect(ArabicFormat.planName(12), 'الباقة السنوية');
+    expect(ArabicFormat.planName(2), 'باقة شهرين');
+    expect(ArabicFormat.planName(4), 'باقة 4 أشهر');
+    expect(ArabicFormat.planName(24), 'باقة 24 شهراً');
+  });
+
+  test('a payment knows its plan months from its period, even across a short month', () {
+    SubscriptionPayment period(DateTime start, DateTime end) => SubscriptionPayment(
+      id: 'p',
+      barberId: 'b',
+      amount: 50,
+      paidAt: start,
+      periodStart: start,
+      periodEnd: end,
+      recordedBy: 'a',
+    );
+
+    expect(period(DateTime(2026, 1, 31, 10), DateTime(2026, 2, 28, 10)).months, 1);
+    expect(period(DateTime(2026, 10, 14), DateTime(2027, 1, 14)).months, 3);
+    expect(period(DateTime(2026, 10, 14), DateTime(2027, 10, 14)).months, 12);
+  });
+
   test('ArabicFormat has the short date parts the booking cards use', () async {
     await initializeDateFormatting('ar');
     final day = DateTime(2026, 10, 1);

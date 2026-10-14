@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared/shared.dart';
 
-/// The app theme, locale and a [ProviderScope] around [home], without retries.
+/// The app theme, locale, keyboard handling and a [ProviderScope] around [home], without retries.
 Widget wrapApp(Widget home, {Iterable<Object> overrides = const []}) => ProviderScope(
   retry: (_, _) => null,
   overrides: overrides.cast<Override>().toList(),
@@ -13,6 +13,7 @@ Widget wrapApp(Widget home, {Iterable<Object> overrides = const []}) => Provider
     locale: AppTheme.locale,
     supportedLocales: AppTheme.supportedLocales,
     localizationsDelegates: AppTheme.localizationsDelegates,
+    builder: (context, child) => KeyboardDismiss(child: child!),
     home: home,
   ),
 );

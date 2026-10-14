@@ -144,14 +144,32 @@ class _Segments extends StatelessWidget {
   }
 }
 
-class _UpcomingCard extends ConsumerWidget {
+class _UpcomingCard extends ConsumerStatefulWidget {
   const _UpcomingCard({required this.item, required this.first});
 
   final MyBooking item;
   final bool first;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_UpcomingCard> createState() => _UpcomingCardState();
+}
+
+class _UpcomingCardState extends ConsumerState<_UpcomingCard> {
+  var _cancelling = false;
+
+  Future<void> _cancel() => cancelBookingFlow(
+    context,
+    ref,
+    widget.item,
+    onBusy: (busy) {
+      if (mounted) setState(() => _cancelling = busy);
+    },
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
+    final first = widget.first;
     final booking = item.booking;
     return AppCard(
       child: Column(
@@ -197,7 +215,9 @@ class _UpcomingCard extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
-              Expanded(child: ActionButton.cancel(onPressed: () => cancelBookingFlow(context, ref, item))),
+              Expanded(
+                child: ActionButton.cancel(loading: _cancelling, onPressed: _cancelling ? null : _cancel),
+              ),
             ],
           ),
         ],

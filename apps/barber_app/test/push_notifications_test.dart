@@ -35,14 +35,19 @@ void main() {
     bookingLoads = 0;
   });
 
-  Future<void> pumpGate(WidgetTester tester, {Barber? barber, String? userId = 'u1'}) => pumpPhone(
+  Future<void> pumpGate(
+    WidgetTester tester, {
+    Barber? barber,
+    String? userId = 'u1',
+    Future<Barber?> Function()? loader,
+  }) => pumpPhone(
     tester,
     testApp(
       home: const AuthGate(),
       auth: auth,
       push: push,
       deviceTokens: tokens,
-      barberLoader: () async => userId == null ? null : barber ?? fakeBarber,
+      barberLoader: loader ?? () async => userId == null ? null : barber ?? fakeBarber,
       overrides: [
         currentUserIdProvider.overrideWithValue(userId),
         todayBookingsProvider.overrideWith(() => _CountingBookings(() => bookingLoads++)),
@@ -73,6 +78,60 @@ void main() {
     expect(tokens.saved.keys, ['device-token-1']);
   });
 
+  Barber pending() => Barber(
+    id: 'b1',
+    profileId: 'u1',
+    salonId: 's1',
+    displayName: 'علي',
+    status: BarberStatus.pending,
+    createdAt: DateTime(2026),
+  );
+
+  testWidgets('the activation notice takes a waiting barber straight into the app', (tester) async {
+    var activated = false;
+    await pumpGate(tester, loader: () async => activated ? fakeBarber : pending());
+    expect(find.text('حسابك بانتظار التفعيل'), findsOneWidget);
+
+    activated = true;
+    push.deliver(
+      title: 'تم تفعيل حسابك',
+      body: 'حسابك ظاهر للزبائن الآن ويمكنهم الحجز عندك.',
+      type: 'barber_activated',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('حجوزات اليوم'), findsOneWidget);
+    expect(find.text('حسابك بانتظار التفعيل'), findsNothing);
+    expect(find.text('تم تفعيل حسابك\nحسابك ظاهر للزبائن الآن ويمكنهم الحجز عندك.'), findsOneWidget);
+  });
+
+  testWidgets('coming back to the app checks the activation again', (tester) async {
+    var loads = 0;
+    var activated = false;
+    await pumpGate(
+      tester,
+      loader: () async {
+        loads++;
+        return activated ? fakeBarber : pending();
+      },
+    );
+    expect(loads, 1);
+
+    activated = true;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    expect(loads, 1, reason: 'nothing is loaded while the app is in the background');
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(loads, 2);
+    expect(find.text('حجوزات اليوم'), findsOneWidget);
+  });
+
   testWidgets('nothing is asked before sign-in', (tester) async {
     await pumpGate(tester, userId: null);
 
@@ -95,6 +154,8 @@ void main() {
     await tester.tap(find.text('حسابي'));
     await tester.pumpAndSettle();
     await tapVisible(tester, find.text('تسجيل الخروج'));
+    await tester.tap(find.widgetWithText(FilledButton, 'تسجيل الخروج'));
+    await tester.pumpAndSettle();
 
     expect(auth.calls, ['register:device-token-1', 'unregister:device-token-1', 'signOut']);
     expect(tokens.saved, isEmpty);

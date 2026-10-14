@@ -2,7 +2,7 @@ import { assertEquals } from '@std/assert';
 
 import { FcmClient, fcmClientFromSecret } from './fcm.ts';
 import { createHandler, type TokenStore } from './handler.ts';
-import { composeMessage, type NotificationPayload } from './messages.ts';
+import { type ActivationPayload, composeMessage, type NotificationPayload } from './messages.ts';
 
 const created: NotificationPayload = {
   type: 'booking_created',
@@ -60,6 +60,35 @@ Deno.test('messages are Arabic, in Tripoli time, with Latin digits', () => {
   for (const [payload, title, body] of cases) {
     assertEquals(composeMessage(payload), { title, body, data: { type: payload.type, booking_id: 'b1' } });
   }
+});
+
+Deno.test('an activated barber hears whether customers can book them now', () => {
+  const activated: ActivationPayload = {
+    type: 'barber_activated',
+    recipient_id: 'barber-1',
+    audience: 'barber',
+    barber_name: 'علي القماطي',
+    bookable: true,
+    renewed: false,
+  };
+  const data = { type: 'barber_activated' };
+  assertEquals(composeMessage(activated), {
+    title: 'تم تفعيل حسابك',
+    body: 'حسابك ظاهر للزبائن الآن ويمكنهم الحجز عندك.',
+    data,
+  });
+  assertEquals(composeMessage({ ...activated, renewed: true }), {
+    title: 'تم تجديد اشتراكك',
+    body: 'عاد حسابك للظهور للزبائن ويمكنهم الحجز عندك الآن.',
+    data,
+  });
+  assertEquals(composeMessage({ ...activated, bookable: false }), {
+    title: 'تم تفعيل حسابك',
+    body: 'فعّل اشتراكك مع الإدارة ليظهر حسابك للزبائن ويحجزوا عندك.',
+    data,
+  });
+  assertEquals(composeMessage({ ...activated, audience: 'customer' }), null);
+  assertEquals(composeMessage({ ...activated, recipient_id: undefined }), null);
 });
 
 Deno.test('unknown or incomplete payloads have no message', () => {

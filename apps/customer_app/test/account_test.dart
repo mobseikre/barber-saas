@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared/shared.dart';
@@ -32,6 +34,24 @@ void main() {
   }
 
   Future<void> save(WidgetTester tester) => tapVisible(tester, find.widgetWithText(FilledButton, 'حفظ كلمة المرور'));
+
+  testWidgets('change password is sent once even when submitted again while saving', (tester) async {
+    await openChangePassword(tester);
+    final gate = Completer<void>();
+    deps.auth.changePasswordGate = gate;
+
+    await fill(tester);
+    await tester.tap(find.widgetWithText(FilledButton, 'حفظ كلمة المرور'));
+    await tester.pump();
+    await tester.showKeyboard(fieldLabelled('تأكيد كلمة المرور الجديدة'));
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pump();
+
+    expect(deps.auth.calls.where((c) => c.startsWith('changePassword')), hasLength(1));
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('تم تغيير كلمة المرور'), findsOneWidget);
+  });
 
   testWidgets('a signed-in customer sees their name, phone and the account actions', (tester) async {
     await openAccount(tester);
@@ -72,6 +92,8 @@ void main() {
     await openAccount(tester);
 
     await tapVisible(tester, find.text('تسجيل الخروج'));
+    await tester.tap(find.widgetWithText(FilledButton, 'تسجيل الخروج'));
+    await tester.pumpAndSettle();
 
     expect(deps.auth.calls, ['signOut']);
     expect(find.text('تسجيل الخروج'), findsNothing);

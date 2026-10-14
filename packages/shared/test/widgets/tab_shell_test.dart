@@ -78,4 +78,23 @@ void main() {
     );
     expect((bar.decoration as BoxDecoration).color, AppColors.blue900);
   });
+
+  testWidgets('a shell that the app controls shows the given tab and reports taps instead of switching', (
+    tester,
+  ) async {
+    final taps = <int>[];
+    Widget shell(int index) =>
+        wrapApp(TabShell(variant: AppBottomNavVariant.light, tabs: tabs, index: index, onChanged: taps.add));
+    await pumpPhone(tester, shell(0));
+
+    await tester.tap(find.text('حجوزاتي'));
+    await tester.pumpAndSettle();
+    expect(taps, [1]);
+    expect(find.text('home 0'), findsOneWidget, reason: 'the app decides when to switch');
+
+    await tester.pumpWidget(shell(1));
+    await tester.pumpAndSettle();
+    expect(find.text('bookings 0'), findsOneWidget);
+    expect(_Counter.builds, ['home', 'bookings']);
+  });
 }

@@ -18,6 +18,7 @@ String authErrorMessage(Object error) {
     return switch (error.message) {
       'not_a_barber' => 'هذا الرقم مسجّل كزبون، استخدم تطبيق الزبائن',
       'not_a_customer' => 'هذا الرقم مسجّل كحلاق، استخدم تطبيق الحلاقين',
+      'admin_account' => 'هذا الرقم ليس حساب زبون، سجّل الدخول برقم زبون',
       'display_name_required' => 'أدخل اسمك الكامل',
       'salon_not_found' => 'الصالون المختار غير موجود',
       'password_too_short' => 'كلمة المرور يجب أن تكون ${AppConstants.passwordMinLength} أحرف على الأقل',

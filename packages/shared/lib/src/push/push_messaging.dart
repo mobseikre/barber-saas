@@ -6,8 +6,8 @@ import 'package:flutter/foundation.dart';
 
 import '../models/enums.dart';
 
-/// A notification that arrived while the app was open.
-typedef PushNotice = ({String? title, String? body});
+/// A notification that arrived while the app was open; [type] is the `type` of its data, e.g. `barber_activated`.
+typedef PushNotice = ({String? title, String? body, String? type});
 
 /// The device's push service. Tests replace it with a fake.
 abstract interface class PushMessaging {
@@ -58,8 +58,9 @@ class FirebasePushMessaging implements PushMessaging {
   Stream<String> get onTokenRefresh => _fcm.onTokenRefresh;
 
   @override
-  Stream<PushNotice> get onMessage =>
-      FirebaseMessaging.onMessage.map((m) => (title: m.notification?.title, body: m.notification?.body));
+  Stream<PushNotice> get onMessage => FirebaseMessaging.onMessage.map(
+    (m) => (title: m.notification?.title, body: m.notification?.body, type: m.data['type'] as String?),
+  );
 
   @override
   Future<void> deleteToken() => _fcm.deleteToken();

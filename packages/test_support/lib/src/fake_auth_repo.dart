@@ -13,6 +13,7 @@ class FakeAuthRepo implements AuthRepository {
   Object? signInError;
   Object? signUpError;
   Object? changePasswordError;
+  Completer<void>? changePasswordGate;
   @override
   bool mustChangePassword = false;
 
@@ -71,6 +72,7 @@ class FakeAuthRepo implements AuthRepository {
   @override
   Future<void> changePassword({required String currentPassword, required String newPassword}) async {
     calls.add('changePassword:$currentPassword:$newPassword');
+    await changePasswordGate?.future;
     if (changePasswordError != null) throw changePasswordError!;
   }
 

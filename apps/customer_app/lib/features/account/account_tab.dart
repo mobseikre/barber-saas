@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared/shared.dart';
 
 import '../auth/sign_in.dart';
-import 'change_password_screen.dart';
 
 class AccountTab extends ConsumerWidget {
   const AccountTab({super.key});
@@ -68,7 +67,11 @@ class AccountTab extends ConsumerWidget {
                         onPressed: () => contactSupport(context),
                       ),
                       const SizedBox(height: AppSpacing.md),
-                      AppButton(label: 'تسجيل الخروج', variant: AppButtonVariant.text, onPressed: () => signOut(ref)),
+                      AppButton(
+                        label: 'تسجيل الخروج',
+                        variant: AppButtonVariant.text,
+                        onPressed: () => confirmSignOut(context, ref),
+                      ),
                     ],
                   )
                 : const SignInPrompt(message: 'سجّل الدخول لتحجز موعدك وتتابع حجوزاتك'),

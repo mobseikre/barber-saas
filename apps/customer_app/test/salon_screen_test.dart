@@ -74,6 +74,35 @@ void main() {
     expect(find.text('يبدأ من 20 د.ل'), findsOneWidget);
   });
 
+  testWidgets('a requested barber who cannot be booked is not swapped for another one', (tester) async {
+    await openSalon(tester, barberId: 'walid');
+
+    expect(find.text('وليد الشريف غير متاح للحجز حالياً'), findsOneWidget);
+    expect(find.text('اختر حلاقاً آخر من الصالون'), findsOneWidget);
+    expect(find.byIcon(Icons.check_rounded), findsNothing, reason: 'nobody is chosen for the customer');
+    expect(find.textContaining('خدمات وأسعار'), findsNothing);
+    expect(find.text('اختر حلاقاً متاحاً'), findsOneWidget);
+    expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'احجز الآن')).onPressed, isNull);
+
+    await tapVisible(tester, find.text('محمد السويحلي'));
+
+    expect(find.text('وليد الشريف غير متاح للحجز حالياً'), findsNothing);
+    expect(find.text('مع محمد'), findsOneWidget);
+    expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'احجز الآن')).onPressed, isNotNull);
+  });
+
+  testWidgets('a requested barber alone in a salon with nobody bookable gets no hint to choose another', (
+    tester,
+  ) async {
+    deps = TestDeps();
+    deps.directory.team = [SalonBarber(id: 'walid', salonId: 'salon-1', displayName: 'وليد الشريف')];
+    await pumpPhone(tester, deps.app(const SalonScreen(salonId: 'salon-1', barberId: 'walid')));
+
+    expect(find.text('وليد الشريف غير متاح للحجز حالياً'), findsOneWidget);
+    expect(find.text('اختر حلاقاً آخر من الصالون'), findsNothing);
+    expect(find.text('لا يوجد حلاق متاح للحجز'), findsOneWidget);
+  });
+
   testWidgets('only the chosen barber carries the check mark', (tester) async {
     await openSalon(tester);
     final check = find.byIcon(Icons.check_rounded);
@@ -104,6 +133,7 @@ void main() {
     deps.directory.teamError = Exception('offline');
     await pumpPhone(tester, deps.app(const SalonScreen(salonId: 'salon-1', barberId: 'ali')));
     expect(find.text('تعذّر تحميل الصالون'), findsOneWidget);
+    expect(find.byType(AppBackButton), findsOneWidget, reason: 'the error state can be left');
 
     deps.directory
       ..teamError = null
@@ -113,6 +143,32 @@ void main() {
     expect(find.text('اختر حلاقك'), findsOneWidget);
   });
 
+  testWidgets('a salon with nobody listed says it is unavailable and can be left', (tester) async {
+    deps = TestDeps();
+    deps.directory.team = const [];
+    deps.directory.barbers = const [];
+    await pumpPhone(
+      tester,
+      deps.app(
+        Builder(
+          builder: (context) => TextButton(
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute<void>(builder: (_) => const SalonScreen(salonId: 'salon-gone'))),
+            child: const Text('فتح'),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('فتح'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('هذا الصالون غير متاح حالياً'), findsOneWidget);
+    await tester.tap(find.byType(AppBackButton));
+    await tester.pumpAndSettle();
+    expect(find.byType(SalonScreen), findsNothing);
+  });
+
   testWidgets('احجز الآن opens the booking with the chosen barber', (tester) async {
     await openSalon(tester);
 
@@ -120,5 +176,28 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.widget<BookingScreen>(find.byType(BookingScreen)).barber.id, 'ali');
+  });
+
+  testWidgets('each bookable barber tile shows the next free time, tomorrow when today is full', (tester) async {
+    deps = TestDeps();
+    final today = dbDate(AppTime.now());
+    final free = deps.bookings.slots;
+    deps.bookings.slots = (date, duration) => date == today ? const [] : free(date, duration);
+    deps.directory.team = [
+      SalonBarber(id: 'ali', salonId: 'salon-1', displayName: 'علي القماطي', isBookable: true),
+      SalonBarber(id: 'walid', salonId: 'salon-1', displayName: 'وليد الشريف'),
+    ];
+    await pumpPhone(tester, deps.app(const SalonScreen(salonId: 'salon-1')));
+
+    expect(find.text('غداً 11:30 ص'), findsOneWidget);
+    expect(deps.bookings.slotRequests.length, 2, reason: 'one lookup per day, only for the bookable barber');
+  });
+
+  test('the next free label names today or tomorrow', () {
+    final now = DateTime.utc(2026, 10, 12, 8);
+    TimeSlot at(DateTime t) => TimeSlot(startsAt: t, endsAt: t.add(const Duration(minutes: 30)));
+
+    expect(NextFreeLabel.text(at(AppTime.at(now, 16, 0)), now), 'اليوم 4:00 م');
+    expect(NextFreeLabel.text(at(AppTime.at(now.add(const Duration(days: 1)), 10, 0)), now), 'غداً 10:00 ص');
   });
 }

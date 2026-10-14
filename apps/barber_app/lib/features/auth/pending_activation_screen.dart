@@ -3,14 +3,58 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared/shared.dart';
 
 import '../../providers.dart';
+import '../account/change_photo.dart';
+import '../location/location_screen.dart';
+import '../schedule/working_hours_screen.dart';
 import '../services/services_screen.dart';
 
 typedef _StatusCopy = ({IconData icon, String title, String body, List<String>? steps, String whatsApp});
 
-class PendingActivationScreen extends ConsumerWidget {
+enum _Setup { services, hours, location, photo }
+
+/// Shown to pending and rejected barbers; active and suspended ones use the app with a banner.
+/// Checks the status again whenever the app comes back to the foreground.
+class PendingActivationScreen extends ConsumerStatefulWidget {
   const PendingActivationScreen({super.key, required this.barber});
 
   final Barber barber;
+
+  @override
+  ConsumerState<PendingActivationScreen> createState() => _PendingActivationScreenState();
+}
+
+class _PendingActivationScreenState extends ConsumerState<PendingActivationScreen> {
+  late final AppLifecycleListener _lifecycle;
+
+  Barber get barber => widget.barber;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle = AppLifecycleListener(onResume: () => ref.invalidate(currentBarberProvider));
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openSetup() async {
+    final choice = await showAppBottomSheet<_Setup>(context: context, builder: (_) => const _SetupSheet());
+    if (!mounted || choice == null) return;
+    final navigator = Navigator.of(context);
+    switch (choice) {
+      case _Setup.services:
+        navigator.push(MaterialPageRoute<void>(builder: (_) => const ServicesScreen(showBack: true)));
+      case _Setup.hours:
+        navigator.push(MaterialPageRoute<void>(builder: (_) => const WorkingHoursScreen()));
+      case _Setup.location:
+        navigator.push(MaterialPageRoute<void>(builder: (_) => const LocationScreen()));
+      case _Setup.photo:
+        await changeBarberPhoto(context, ref);
+    }
+  }
 
   _StatusCopy get _copy => switch (barber.status) {
     BarberStatus.pending => (
@@ -44,7 +88,7 @@ class PendingActivationScreen extends ConsumerWidget {
   };
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final copy = _copy;
     return Scaffold(
       backgroundColor: AppColors.blue900,
@@ -108,11 +152,9 @@ class PendingActivationScreen extends ConsumerWidget {
                     const SizedBox(height: AppSpacing.xxxl),
                     if (barber.status == BarberStatus.pending) ...[
                       AppButton(
-                        label: 'جهّز خدماتك أثناء الانتظار',
+                        label: 'جهّز حسابك أثناء الانتظار',
                         variant: AppButtonVariant.accent,
-                        onPressed: () => Navigator.of(
-                          context,
-                        ).push(MaterialPageRoute<void>(builder: (_) => const ServicesScreen(showBack: true))),
+                        onPressed: _openSetup,
                       ),
                       const SizedBox(height: AppSpacing.sm),
                     ],
@@ -124,7 +166,7 @@ class PendingActivationScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     TextButton(
-                      onPressed: () => signOut(ref),
+                      onPressed: () => confirmSignOut(context, ref),
                       style: TextButton.styleFrom(foregroundColor: AppColors.red400),
                       child: const Text('تسجيل الخروج'),
                     ),
@@ -134,6 +176,48 @@ class PendingActivationScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SetupSheet extends StatelessWidget {
+  const _SetupSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget row(_Setup value, IconData icon, String label) => InkWell(
+      onTap: () => Navigator.of(context).pop(value),
+      borderRadius: BorderRadius.circular(AppRadius.control),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+        child: Row(
+          children: [
+            Icon(icon, color: AppColors.red700),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(child: Text(label, style: AppText.bodyStrong)),
+            const Icon(Icons.chevron_right_rounded, color: AppColors.text3),
+          ],
+        ),
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.screen, 0, AppSpacing.screen, AppSpacing.screen),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('جهّز حسابك أثناء الانتظار', style: AppText.h2),
+          Text('يظهر للزبائن كما جهّزته بمجرد تفعيل حسابك', style: AppText.caption.copyWith(color: AppColors.text3)),
+          const SizedBox(height: AppSpacing.sm),
+          row(_Setup.services, Icons.content_cut_rounded, 'الخدمات والأسعار'),
+          const Divider(),
+          row(_Setup.hours, Icons.schedule_rounded, 'أوقات العمل والاستراحات'),
+          const Divider(),
+          row(_Setup.location, Icons.location_on_outlined, 'موقع الصالون'),
+          const Divider(),
+          row(_Setup.photo, Icons.photo_camera_outlined, 'صورتك'),
+        ],
       ),
     );
   }
@@ -169,12 +253,12 @@ class _Step extends StatelessWidget {
           ),
           alignment: Alignment.center,
           child: Container(
-            width: AppSpacing.md,
-            height: AppSpacing.md,
-            decoration: const BoxDecoration(color: AppColors.red400, shape: BoxShape.circle),
+            width: AppSizes.stepDot,
+            height: AppSizes.stepDot,
+            decoration: const BoxDecoration(color: AppColors.poleRed, shape: BoxShape.circle),
           ),
         ),
-        AppColors.red400,
+        AppColors.red300,
       ),
       _StepState.upcoming => (
         Container(
