@@ -40,7 +40,7 @@ class CustomerLoginScreen extends ConsumerWidget {
         final profile = await auth.currentProfile();
         if (profile?.role != UserRole.customer) {
           await auth.signOut();
-          throw const PostgrestException(message: 'not_a_customer');
+          throw PostgrestException(message: profile?.role == UserRole.admin ? 'admin_account' : 'not_a_customer');
         }
         onDone();
       },

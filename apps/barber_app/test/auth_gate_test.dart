@@ -115,18 +115,31 @@ void main() {
     expect(find.byType(PendingActivationScreen), findsNothing);
   });
 
-  final notBookable = {
-    'pending': barberWith(BarberStatus.pending),
-    'lapsed': barberWith(BarberStatus.active, endsIn: const Duration(days: -1)),
-    'suspended': barberWith(BarberStatus.suspended, endsIn: const Duration(days: 10)),
-    'rejected': barberWith(BarberStatus.rejected),
-  };
-  for (final entry in notBookable.entries) {
+  final notActivated = {'pending': barberWith(BarberStatus.pending), 'rejected': barberWith(BarberStatus.rejected)};
+  for (final entry in notActivated.entries) {
     testWidgets('a ${entry.key} barber sees the pending activation screen', (tester) async {
       await pumpSignedIn(tester, () async => entry.value);
 
       expect(find.byType(PendingActivationScreen), findsOneWidget);
       expect(find.byType(HomeShell), findsNothing);
+    });
+  }
+
+  final notBookable = {
+    'lapsed': (barberWith(BarberStatus.active, endsIn: const Duration(days: -1)), 'انتهى اشتراكك'),
+    'never subscribed': (barberWith(BarberStatus.active), 'اشتراكك غير مفعّل'),
+    'suspended': (barberWith(BarberStatus.suspended, endsIn: const Duration(days: 10)), 'تم إيقاف حسابك مؤقتاً'),
+  };
+  for (final MapEntry(key: name, value: (barber, title)) in notBookable.entries) {
+    testWidgets('a $name barber reaches their bookings with a banner and no manual booking', (tester) async {
+      await pumpSignedIn(tester, () async => barber);
+
+      expect(find.byType(HomeShell), findsOneWidget);
+      expect(find.byType(PendingActivationScreen), findsNothing);
+      expect(find.text('حجوزات اليوم'), findsOneWidget);
+      expect(find.text(title), findsOneWidget);
+      expect(find.text('تواصل مع الإدارة'), findsOneWidget);
+      expect(find.text('إضافة حجز يدوي'), findsNothing);
     });
   }
 

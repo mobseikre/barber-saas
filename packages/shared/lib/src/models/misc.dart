@@ -58,6 +58,9 @@ class SubscriptionPayment {
   final String recordedBy;
   final String? note;
 
+  /// The plan's months: `activate_subscription` ends the period exactly that many months after its start.
+  int get months => (periodEnd.year - periodStart.year) * 12 + periodEnd.month - periodStart.month;
+
   factory SubscriptionPayment.fromJson(Map<String, dynamic> json) => SubscriptionPayment(
     id: json['id'] as String,
     barberId: json['barber_id'] as String,

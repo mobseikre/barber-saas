@@ -33,7 +33,7 @@ class _CancelReasonSheetState extends State<_CancelReasonSheet> {
   @override
   Widget build(BuildContext context) {
     final booking = widget.booking;
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(AppSpacing.screen, 0, AppSpacing.screen, AppSpacing.screen),
       child: Column(
         mainAxisSize: MainAxisSize.min,

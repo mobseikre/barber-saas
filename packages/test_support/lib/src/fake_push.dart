@@ -21,7 +21,7 @@ class FakePushMessaging implements PushMessaging {
   }
 
   /// Plays a notification arriving while the app is open.
-  void deliver({String? title, String? body}) => _messages.add((title: title, body: body));
+  void deliver({String? title, String? body, String? type}) => _messages.add((title: title, body: body, type: type));
 
   @override
   Future<bool> requestPermission() async {

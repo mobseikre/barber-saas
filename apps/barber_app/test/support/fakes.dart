@@ -76,6 +76,9 @@ class FakeTodayBookings extends TodayBookings {
   }
 
   @override
+  Future<void> undoStatus(String id) async => calls.add('undo:$id');
+
+  @override
   Future<void> reopenToday() async => calls.add('reopen');
 
   @override

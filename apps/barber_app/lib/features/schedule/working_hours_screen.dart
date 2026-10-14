@@ -25,7 +25,7 @@ class _Day {
   bool get valid => !open || isAfter(closes, opens);
 }
 
-/// Opening hours for each day of the week, days off and breaks.
+/// Opening hours for each day of the week, days off and breaks. Asks before leaving with unsaved changes.
 class WorkingHoursScreen extends ConsumerStatefulWidget {
   const WorkingHoursScreen({super.key});
 
@@ -38,6 +38,30 @@ class _WorkingHoursScreenState extends ConsumerState<WorkingHoursScreen> {
   List<Break>? _breaks;
   var _submitted = false;
   var _saving = false;
+  var _dirty = false;
+
+  void _changed() => setState(() => _dirty = true);
+
+  Future<void> _confirmLeave() async {
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('تجاهل التغييرات؟'),
+        content: const Text('لم تحفظ تغييرات أوقات العمل والاستراحات، وستضيع إذا رجعت الآن.'),
+        actionsAlignment: MainAxisAlignment.start,
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('متابعة التعديل')),
+          AppButton(
+            label: 'تجاهل',
+            variant: AppButtonVariant.accent,
+            compact: true,
+            onPressed: () => Navigator.of(ctx).pop(true),
+          ),
+        ],
+      ),
+    );
+    if (leave == true && mounted) Navigator.of(context).pop();
+  }
 
   Future<void> _editBreak({Break? existing}) async {
     final barber = await ref.read(currentBarberProvider.future);
@@ -45,6 +69,7 @@ class _WorkingHoursScreenState extends ConsumerState<WorkingHoursScreen> {
     final result = await showBreakSheet(context, barberId: barber.id, existing: existing);
     if (result == null) return;
     setState(() {
+      _dirty = true;
       final list = _breaks!;
       if (result.delete) {
         list.remove(existing);
@@ -83,8 +108,13 @@ class _WorkingHoursScreenState extends ConsumerState<WorkingHoursScreen> {
       ref.invalidate(workingHoursProvider);
       ref.invalidate(breaksProvider);
       if (mounted) {
-        setState(() => _breaks = saved);
+        setState(() {
+          _breaks = saved;
+          _dirty = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حفظ أوقات العمل')));
+        final navigator = Navigator.of(context);
+        if (navigator.canPop()) navigator.pop();
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(bookingErrorMessage(e))));
@@ -106,56 +136,62 @@ class _WorkingHoursScreenState extends ConsumerState<WorkingHoursScreen> {
     final failed = days == null && (hours.hasError || breaks.hasError);
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
-    return Scaffold(
-      body: Column(
-        children: [
-          const PageTitle(title: 'أوقات العمل', subtitle: 'حدد ساعات كل يوم وأيام العطلة', leading: AppBackButton()),
-          if (days == null && !failed) const Expanded(child: Center(child: CircularProgressIndicator())),
-          if (failed)
-            Expanded(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppSpacing.screen),
-                  child: RetryMessage(
-                    message: genericErrorMessage,
-                    onRetry: () {
-                      ref.invalidate(workingHoursProvider);
-                      ref.invalidate(breaksProvider);
-                    },
+    return PopScope(
+      canPop: !_dirty,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmLeave();
+      },
+      child: Scaffold(
+        body: Column(
+          children: [
+            const PageTitle(title: 'أوقات العمل', subtitle: 'حدد ساعات كل يوم وأيام العطلة', leading: AppBackButton()),
+            if (days == null && !failed) const Expanded(child: Center(child: CircularProgressIndicator())),
+            if (failed)
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.screen),
+                    child: RetryMessage(
+                      message: genericErrorMessage,
+                      onRetry: () {
+                        ref.invalidate(workingHoursProvider);
+                        ref.invalidate(breaksProvider);
+                      },
+                    ),
                   ),
                 ),
               ),
-            ),
-          if (days != null) ...[
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screen),
-                children: [
-                  for (final day in days) ...[
-                    _DayCard(day: day, submitted: _submitted, onChanged: () => setState(() {})),
+            if (days != null) ...[
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screen),
+                  children: [
+                    for (final day in days) ...[
+                      _DayCard(day: day, submitted: _submitted, onChanged: _changed),
+                      const SizedBox(height: AppSpacing.sm),
+                    ],
                     const SizedBox(height: AppSpacing.sm),
+                    _BreaksCard(
+                      breaks: _breaks!,
+                      onAdd: _editBreak,
+                      onEdit: (b) => _editBreak(existing: b),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
                   ],
-                  const SizedBox(height: AppSpacing.sm),
-                  _BreaksCard(
-                    breaks: _breaks!,
-                    onAdd: _editBreak,
-                    onEdit: (b) => _editBreak(existing: b),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                ],
+                ),
               ),
-            ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                AppSpacing.screen,
-                AppSpacing.sm,
-                AppSpacing.screen,
-                bottomInset + AppSpacing.lg,
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.screen,
+                  AppSpacing.sm,
+                  AppSpacing.screen,
+                  bottomInset + AppSpacing.lg,
+                ),
+                child: AppButton(label: 'حفظ أوقات العمل', loading: _saving, onPressed: _save),
               ),
-              child: AppButton(label: 'حفظ أوقات العمل', loading: _saving, onPressed: _save),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

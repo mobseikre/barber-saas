@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:shared/shared.dart';
 
+import 'package:customer_app/data/directory_repository.dart';
 import 'package:customer_app/features/home/ranking.dart';
 
 import 'support/fakes.dart';
@@ -52,6 +53,19 @@ void main() {
     expect(ids(filterBarbers(ranked, areas: testAreas, cityId: 'tripoli', areaId: 'gargaresh')), ['salem']);
     expect(ids(filterBarbers(ranked, areas: testAreas, cityId: 'tripoli', query: 'ستايل')), ['ayman']);
     expect(ids(filterBarbers(ranked, areas: testAreas, cityId: 'tripoli', query: ' علي ')), ['ali']);
+  });
+
+  test('filterBarbers can keep only VIPs or only barbers open now', () {
+    final ranked = rankBarbers(allListings, areas: testAreas);
+    final now = AppTime.from(DateTime.utc(2026, 10, 12, 8));
+    final today = {'ali': BarberToday(hours: weekHours('ali').first)};
+
+    expect(ids(filterBarbers(ranked, areas: testAreas, filter: const HomeFilter(vipOnly: true))), ['ali', 'ayman']);
+    expect(
+      ids(filterBarbers(ranked, areas: testAreas, filter: const HomeFilter(openNow: true), today: today, now: now)),
+      ['ali'],
+    );
+    expect(ids(filterBarbers(ranked, areas: testAreas, filter: const HomeFilter(openNow: true))), isEmpty);
   });
 
   test('defaultCityId is the city of the nearest barber, else the first city', () {

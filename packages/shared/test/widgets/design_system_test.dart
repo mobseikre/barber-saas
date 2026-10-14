@@ -371,4 +371,16 @@ void main() {
       expect((box.decoration! as BoxDecoration).borderRadius, BorderRadius.circular(AppRadius.control));
     });
   });
+
+  testWidgets('a loading action button shows a spinner in its colour and ignores taps', (tester) async {
+    var taps = 0;
+    await tester.pumpWidget(_app(ActionButton.cancel(loading: true, onPressed: () => taps++)));
+
+    expect(find.text('إلغاء الحجز'), findsNothing);
+    final spinner = tester.widget<CircularProgressIndicator>(find.byType(CircularProgressIndicator));
+    expect(spinner.color, AppColors.danger);
+    await tester.tap(find.byType(ActionButton));
+    expect(taps, 0);
+    expect(tester.widget<Opacity>(find.byType(Opacity)).opacity, 1, reason: 'not greyed out like a disabled button');
+  });
 }

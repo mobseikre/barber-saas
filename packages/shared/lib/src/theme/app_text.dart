@@ -29,5 +29,7 @@ abstract final class AppText {
   static final cardTitle = weight(_base.copyWith(fontSize: 16, height: 1.4), FontWeight.w700);
   static final inputLabel = weight(_base.copyWith(fontSize: 14, height: 1.4), FontWeight.w600);
   static final time = weight(_base.copyWith(fontSize: 18, height: 1.2), FontWeight.w800);
+  static final incomeValue = weight(_base.copyWith(fontSize: 26, height: 1.2), FontWeight.w800);
+  static final tileTitle = weight(_base.copyWith(fontSize: 18, height: 1.4), FontWeight.w800);
   static final statValue = weight(_base.copyWith(fontSize: 32, height: 1.2), FontWeight.w800);
 }

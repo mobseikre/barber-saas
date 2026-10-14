@@ -83,4 +83,15 @@ abstract final class ArabicFormat {
     >= 3 && <= 10 => '$count أيام',
     _ => '$count يوماً',
   };
+
+  /// الباقة الشهرية، الباقة السنوية، باقة 2 أشهر — the plan names of the admin panel's `planLabel`.
+  static String planName(int months) => switch (months) {
+    1 => 'الباقة الشهرية',
+    3 => 'الباقة الربع سنوية',
+    6 => 'الباقة النصف سنوية',
+    12 => 'الباقة السنوية',
+    2 => 'باقة شهرين',
+    >= 3 && <= 10 => 'باقة $months أشهر',
+    _ => 'باقة $months شهراً',
+  };
 }

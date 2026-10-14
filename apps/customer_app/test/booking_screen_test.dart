@@ -6,6 +6,7 @@ import 'package:test_support/test_support.dart';
 
 import 'package:customer_app/features/booking/booking_confirmed_screen.dart';
 import 'package:customer_app/features/booking/booking_screen.dart';
+import 'package:customer_app/features/home/home_shell.dart';
 import 'package:customer_app/providers.dart';
 import 'package:customer_app/widgets/app_chip.dart';
 
@@ -160,6 +161,55 @@ void main() {
     expect(deps.bookings.slotRequests, ['2026-10-12:30']);
     expect(find.text('اختر الخدمة والوقت'), findsOneWidget);
     expect(find.byType(BookingConfirmedScreen), findsNothing);
+  });
+
+  testWidgets('a clash caught by the database is treated as a taken slot', (tester) async {
+    await openBooking(tester);
+    deps.bookings.errors.add(
+      const PostgrestException(message: 'conflicting key value violates exclusion constraint', code: '23P01'),
+    );
+    await choose(tester);
+    deps.bookings.slotRequests.clear();
+
+    await confirm(tester);
+
+    expect(find.text('هذا الموعد لم يعد متاحاً، اختر وقتاً آخر'), findsOneWidget);
+    expect(deps.bookings.slotRequests, ['2026-10-12:30']);
+    expect(find.text('اختر الخدمة والوقت'), findsOneWidget);
+  });
+
+  testWidgets('a barber who stops being bookable cannot be confirmed again, and the customer can go back', (
+    tester,
+  ) async {
+    await openBooking(tester);
+    deps.bookings.errors.add(rpcError('barber_not_bookable'));
+    await choose(tester);
+
+    await confirm(tester);
+
+    expect(find.text('هذا الحلاق غير متاح للحجز حالياً'), findsOneWidget);
+    expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'تأكيد الحجز')).onPressed, isNull);
+    await tapVisible(tester, find.text('العودة لاختيار حلاق'));
+    expect(find.byType(BookingScreen), findsNothing);
+    expect(find.text('HOME'), findsOneWidget);
+    expect(deps.bookings.created, hasLength(1));
+  });
+
+  testWidgets('عرض حجوزاتي on the confirmation opens the bookings tab', (tester) async {
+    deps = TestDeps(auth: FakeAuthRepo(userId: 'customer-1'));
+    await pumpPhone(tester, deps.app(const HomeShell()));
+    tester
+        .state<NavigatorState>(find.byType(Navigator))
+        .push(MaterialPageRoute<void>(builder: (_) => BookingScreen(barber: ali)));
+    await tester.pumpAndSettle();
+    await choose(tester);
+    await confirm(tester);
+    expect(find.byType(BookingConfirmedScreen), findsOneWidget);
+
+    await tapVisible(tester, find.text('عرض حجوزاتي'));
+
+    expect(find.byType(BookingConfirmedScreen), findsNothing);
+    expect(find.text('القادمة (0)').hitTestable(), findsOneWidget);
   });
 
   for (final (code, message) in [

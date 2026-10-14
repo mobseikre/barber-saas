@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared/shared.dart';
@@ -158,5 +159,44 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.byType(ChangePasswordRequiredScreen), findsOneWidget);
+  });
+
+  testWidgets('the system back button does not close the app while the screen is up', (tester) async {
+    var exits = 0;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'SystemNavigator.pop') exits++;
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+
+    await pumpGate(tester);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(exits, 0);
+    expect(find.byType(ChangePasswordRequiredScreen), findsOneWidget);
+  });
+
+  testWidgets('the system back button leaves the hidden app on its current screen', (tester) async {
+    await pumpGate(tester, locked: false);
+    Navigator.of(
+      tester.element(find.text('APP 0')),
+    ).push(MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Text('PUSHED'))));
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(tester.element(find.text('PUSHED')));
+    auth.mustChangePassword = true;
+    container.invalidate(mustChangePasswordProvider);
+    await tester.pumpAndSettle();
+    expect(find.byType(ChangePasswordRequiredScreen), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ChangePasswordRequiredScreen), findsOneWidget);
+
+    await fillAndSave(tester, 'NewPass-2026');
+    expect(find.byType(ChangePasswordRequiredScreen), findsNothing);
+    expect(find.text('PUSHED'), findsOneWidget);
   });
 }

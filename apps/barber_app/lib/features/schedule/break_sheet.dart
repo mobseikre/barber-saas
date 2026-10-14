@@ -63,7 +63,7 @@ class _BreakSheetState extends State<_BreakSheet> {
   @override
   Widget build(BuildContext context) {
     final editing = widget.existing != null;
-    return Padding(
+    return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(AppSpacing.screen, 0, AppSpacing.screen, AppSpacing.screen),
       child: Column(
         mainAxisSize: MainAxisSize.min,

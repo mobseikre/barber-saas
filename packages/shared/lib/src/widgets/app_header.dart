@@ -236,12 +236,20 @@ const _letterRatio = 0.4;
 
 /// Circle avatar with the photo when [imageUrl] is set, otherwise the first letter of [name].
 class LetterAvatar extends StatelessWidget {
-  const LetterAvatar({super.key, required this.name, this.imageUrl, this.size = AppSizes.avatar, this.radius});
+  const LetterAvatar({
+    super.key,
+    required this.name,
+    this.imageUrl,
+    this.size = AppSizes.avatar,
+    this.radius,
+    this.background = AppColors.blue800,
+  });
 
   final String name;
   final String? imageUrl;
   final double size;
   final double? radius;
+  final Color background;
 
   @override
   Widget build(BuildContext context) {
@@ -254,7 +262,7 @@ class LetterAvatar extends StatelessWidget {
       width: size,
       height: size,
       clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(color: AppColors.blue800, borderRadius: borderRadius),
+      decoration: BoxDecoration(color: background, borderRadius: borderRadius),
       alignment: Alignment.center,
       child: imageUrl == null
           ? letter

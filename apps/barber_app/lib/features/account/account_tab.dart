@@ -4,15 +4,17 @@ import 'package:shared/shared.dart';
 
 import '../../providers.dart';
 import '../location/location_screen.dart';
+import 'change_photo.dart';
 import '../qr/qr_screen.dart';
 import '../schedule/working_hours_screen.dart';
 
-/// Subscription status, how to renew it, and the links to the barber's settings.
+/// Who the barber is and where they work, the subscription and how to renew it, and the links to their settings.
 class AccountTab extends ConsumerWidget {
   const AccountTab({super.key});
 
   Future<void> _refresh(WidgetRef ref) {
     ref.invalidate(latestPaymentProvider);
+    ref.invalidate(currentProfileProvider);
     return ref.refresh(currentBarberProvider.future);
   }
 
@@ -80,7 +82,15 @@ class _Content extends ConsumerWidget {
 
     return Column(
       children: [
-        _PlanCard(ends: ends, active: active, daysLeft: daysLeft, payment: active ? payment : null),
+        _ProfileCard(barber: barber),
+        const SizedBox(height: AppSpacing.lg),
+        _PlanCard(
+          planName: payment == null ? 'لا توجد باقة بعد' : ArabicFormat.planName(payment.months),
+          ends: ends,
+          active: active,
+          daysLeft: daysLeft,
+          payment: active ? payment : null,
+        ),
         const SizedBox(height: AppSpacing.lg),
         const _RenewalCard(),
         const SizedBox(height: AppSpacing.lg),
@@ -108,7 +118,25 @@ class _Content extends ConsumerWidget {
                 onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const QrScreen())),
               ),
               const Divider(),
-              _MenuRow(icon: Icons.logout_rounded, label: 'تسجيل الخروج', danger: true, onTap: () => signOut(ref)),
+              _MenuRow(
+                icon: Icons.photo_camera_outlined,
+                label: 'تغيير الصورة',
+                onTap: () => changeBarberPhoto(context, ref),
+              ),
+              const Divider(),
+              _MenuRow(
+                icon: Icons.lock_outline_rounded,
+                label: 'تغيير كلمة المرور',
+                onTap: () =>
+                    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const ChangePasswordScreen())),
+              ),
+              const Divider(),
+              _MenuRow(
+                icon: Icons.logout_rounded,
+                label: 'تسجيل الخروج',
+                danger: true,
+                onTap: () => confirmSignOut(context, ref),
+              ),
             ],
           ),
         ),
@@ -117,9 +145,82 @@ class _Content extends ConsumerWidget {
   }
 }
 
-class _PlanCard extends StatelessWidget {
-  const _PlanCard({required this.ends, required this.active, required this.daysLeft, required this.payment});
+class _ProfileCard extends ConsumerWidget {
+  const _ProfileCard({required this.barber});
 
+  final Barber barber;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final phone = ref.watch(currentProfileProvider).value?.phone;
+    final salon = ref.watch(currentSalonProvider).value;
+    final areas = ref.watch(areasProvider).value ?? const <Area>[];
+    final area = areas.where((a) => a.id == salon?.areaId).firstOrNull?.name;
+    final place = [?salon?.name, ?area].join(' · ');
+    return AppCard(
+      padding: EdgeInsets.zero,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const LocationScreen())),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.card),
+          child: Row(
+            children: [
+              LetterAvatar(
+                name: barber.displayName,
+                imageUrl: publicStorageUrl(barber.photoUrl),
+                size: AppSizes.avatarTile,
+                radius: AppRadius.control,
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(barber.displayName, style: AppText.cardTitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    if (phone != null)
+                      Text(
+                        formatLibyanPhone(phone),
+                        style: AppText.caption.copyWith(color: AppColors.text3),
+                        textDirection: TextDirection.ltr,
+                      ),
+                    if (place.isNotEmpty)
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on_outlined, size: AppSizes.iconSm, color: AppColors.red700),
+                          const SizedBox(width: AppSpacing.xs),
+                          Expanded(
+                            child: Text(
+                              place,
+                              style: AppText.caption.copyWith(color: AppColors.text3),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded, color: AppColors.text3),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PlanCard extends StatelessWidget {
+  const _PlanCard({
+    required this.planName,
+    required this.ends,
+    required this.active,
+    required this.daysLeft,
+    required this.payment,
+  });
+
+  final String planName;
   final DateTime? ends;
   final bool active;
   final int daysLeft;
@@ -144,7 +245,7 @@ class _PlanCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
-          Text('الباقة الشهرية', style: AppText.weight(AppText.h1.copyWith(color: AppColors.surface), FontWeight.w800)),
+          Text(planName, style: AppText.weight(AppText.h1.copyWith(color: AppColors.surface), FontWeight.w800)),
           const SizedBox(height: AppSpacing.lg),
           Row(
             children: [

@@ -1,15 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared/shared.dart';
 
-/// Search field that picks an existing salon.
+/// Search field that picks an existing salon; what the barber types names a new one.
 class SalonPicker extends ConsumerStatefulWidget {
-  const SalonPicker({super.key, required this.selected, required this.onChanged});
+  const SalonPicker({super.key, required this.selected, required this.onChanged, this.onNameChanged});
 
   final Salon? selected;
   final ValueChanged<Salon?> onChanged;
+  final ValueChanged<String>? onNameChanged;
 
   @override
   ConsumerState<SalonPicker> createState() => _SalonPickerState();
@@ -32,6 +34,7 @@ class _SalonPickerState extends ConsumerState<SalonPicker> {
   }
 
   void _onChanged(String text) {
+    widget.onNameChanged?.call(text.trim());
     _debounce?.cancel();
     if (widget.selected != null) widget.onChanged(null);
     if (text.trim().length < 2) {
@@ -70,6 +73,7 @@ class _SalonPickerState extends ConsumerState<SalonPicker> {
 
   void _select(Salon salon) {
     _query.text = salon.name;
+    widget.onNameChanged?.call(salon.name);
     setState(() {
       _latest = null;
       _searched = null;
@@ -88,6 +92,7 @@ class _SalonPickerState extends ConsumerState<SalonPicker> {
         TextField(
           controller: _query,
           onChanged: _onChanged,
+          inputFormatters: [LengthLimitingTextInputFormatter(AppConstants.salonNameMaxLength)],
           style: AppText.body,
           decoration: InputDecoration(
             hintText: 'ابحث عن صالونك أو أضف جديداً',
@@ -138,13 +143,13 @@ class _SalonPickerState extends ConsumerState<SalonPicker> {
           Padding(
             padding: const EdgeInsets.only(top: AppSpacing.sm),
             child: Text(
-              'لا يوجد صالون بهذا الاسم، سيُنشأ صالون جديد باسمك',
+              'لا يوجد صالون بهذا الاسم، سيُنشأ صالون جديد باسم «$_searched»',
               style: AppText.caption.copyWith(color: AppColors.text2),
             ),
           ),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          'إذا كان صالونك مسجلاً فاختره لتظهر ضمن حلاقيه، وإلا سيُنشأ صالون جديد باسمك.',
+          'إذا كان صالونك مسجلاً فاختره لتظهر ضمن حلاقيه، وإلا اكتب اسمه ليُنشأ صالون جديد.',
           style: AppText.caption.copyWith(color: AppColors.text3),
         ),
       ],

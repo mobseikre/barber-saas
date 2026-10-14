@@ -8,7 +8,7 @@ import 'location_map.dart';
 import 'salon_fields.dart';
 import 'salon_location_controller.dart';
 
-/// The salon's location. The owner can change it; a barber who joined the salon only sees it.
+/// The salon's name and location. The owner can change them; a barber who joined the salon only sees them.
 class LocationScreen extends ConsumerStatefulWidget {
   const LocationScreen({super.key});
 
@@ -18,6 +18,7 @@ class LocationScreen extends ConsumerStatefulWidget {
 
 class _LocationScreenState extends ConsumerState<LocationScreen> {
   final _location = SalonLocationController();
+  final _name = TextEditingController();
   Salon? _salon;
   var _isOwner = false;
   var _loading = true;
@@ -34,6 +35,7 @@ class _LocationScreenState extends ConsumerState<LocationScreen> {
   @override
   void dispose() {
     _location.dispose();
+    _name.dispose();
     super.dispose();
   }
 
@@ -50,6 +52,7 @@ class _LocationScreenState extends ConsumerState<LocationScreen> {
       final areas = await ref.read(areasProvider.future);
       if (!mounted) return;
       _location.load(salon, areas);
+      _name.text = salon.name;
       setState(() {
         _salon = salon;
         _isOwner = salon.ownerId != null && salon.ownerId == barber.profileId;
@@ -67,6 +70,11 @@ class _LocationScreenState extends ConsumerState<LocationScreen> {
 
   Future<void> _save() async {
     final point = _location.point;
+    final name = _name.text.trim();
+    if (name.isEmpty) {
+      setState(() => _error = 'أدخل اسم الصالون');
+      return;
+    }
     if (point == null) {
       setState(() => _error = 'حدد موقع الصالون على الخريطة أولاً');
       return;
@@ -81,13 +89,17 @@ class _LocationScreenState extends ConsumerState<LocationScreen> {
           .read(barberRepositoryProvider)
           .updateSalon(
             salonId: _salon!.id,
+            name: name,
             areaId: _location.areaId,
             address: address.isEmpty ? null : address,
             latitude: point.latitude,
             longitude: point.longitude,
           );
+      ref.invalidate(currentSalonProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حفظ الموقع')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حفظ الصالون')));
+        final navigator = Navigator.of(context);
+        if (navigator.canPop()) navigator.pop();
       }
     } catch (e) {
       if (mounted) setState(() => _error = bookingErrorMessage(e));
@@ -98,7 +110,20 @@ class _LocationScreenState extends ConsumerState<LocationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_loading) {
+      return Scaffold(
+        body: Stack(
+          children: [
+            const Center(child: CircularProgressIndicator()),
+            PositionedDirectional(
+              top: MediaQuery.paddingOf(context).top + AppSpacing.md,
+              start: AppSpacing.screen,
+              child: const AppBackButton(),
+            ),
+          ],
+        ),
+      );
+    }
     if (_loadError != null) {
       return Scaffold(
         body: SafeArea(
@@ -163,6 +188,7 @@ class _LocationScreenState extends ConsumerState<LocationScreen> {
               _Panel(
                 point: point,
                 isOwner: _isOwner,
+                name: _name,
                 controller: _location,
                 error: _error,
                 saving: _saving,
@@ -180,6 +206,7 @@ class _Panel extends StatelessWidget {
   const _Panel({
     required this.point,
     required this.isOwner,
+    required this.name,
     required this.controller,
     required this.error,
     required this.saving,
@@ -188,6 +215,7 @@ class _Panel extends StatelessWidget {
 
   final LatLng? point;
   final bool isOwner;
+  final TextEditingController name;
   final SalonLocationController controller;
   final String? error;
   final bool saving;
@@ -200,7 +228,7 @@ class _Panel extends StatelessWidget {
       constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.6),
       decoration: const BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.panel)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.header)),
       ),
       child: SafeArea(
         top: false,
@@ -210,6 +238,16 @@ class _Panel extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (isOwner)
+                AppTextField(
+                  label: 'اسم الصالون',
+                  required: true,
+                  controller: name,
+                  maxLength: AppConstants.salonNameMaxLength,
+                )
+              else
+                Text(name.text, style: AppText.h3),
+              const SizedBox(height: AppSpacing.lg),
               Row(
                 children: [
                   Container(
@@ -246,7 +284,7 @@ class _Panel extends StatelessWidget {
               ],
               if (isOwner) ...[
                 const SizedBox(height: AppSpacing.xl),
-                AppButton(label: 'حفظ الموقع', onPressed: onSave, loading: saving),
+                AppButton(label: 'حفظ التغييرات', onPressed: onSave, loading: saving),
               ],
             ],
           ),

@@ -75,6 +75,20 @@ void main() {
     expect(find.text('رقم الهاتف أو كلمة المرور غير صحيحة'), findsOneWidget);
   });
 
+  testWidgets('an admin account is refused with a neutral message and signed out', (tester) async {
+    await openAccount(tester);
+    deps.auth.role = UserRole.admin;
+
+    await tapVisible(tester, find.widgetWithText(FilledButton, 'تسجيل الدخول'));
+    await tester.enterText(fieldLabelled('رقم الهاتف'), '0910000001');
+    await tester.enterText(fieldLabelled('كلمة المرور'), 'password123');
+    await tapVisible(tester, find.widgetWithText(FilledButton, 'تسجيل الدخول'));
+
+    expect(find.text('هذا الرقم ليس حساب زبون، سجّل الدخول برقم زبون'), findsOneWidget);
+    expect(find.textContaining('حلاق'), findsNothing);
+    expect(deps.auth.calls, ['signIn:218910000001', 'signOut']);
+  });
+
   testWidgets('the login and sign-up screens opened from a tab have a back button beside the logo', (tester) async {
     await openAccount(tester);
 
@@ -101,6 +115,8 @@ void main() {
     await openAccount(tester, userId: 'customer-1');
 
     await tapVisible(tester, find.text('تسجيل الخروج'));
+    await tester.tap(find.widgetWithText(FilledButton, 'تسجيل الخروج'));
+    await tester.pumpAndSettle();
 
     expect(deps.auth.calls, ['signOut']);
     expect(find.text('سجّل الدخول لتحجز موعدك وتتابع حجوزاتك'), findsOneWidget);

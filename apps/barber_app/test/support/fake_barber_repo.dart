@@ -111,13 +111,21 @@ class FakeBarberRepo implements BarberRepository {
   @override
   Future<void> updateSalon({
     required String salonId,
+    String? name,
     String? areaId,
     String? address,
     double? latitude,
     double? longitude,
   }) async {
     if (saveError != null) throw saveError!;
-    updatedSalons.add({'salon': salonId, 'area': areaId, 'address': address, 'lat': latitude, 'lng': longitude});
+    updatedSalons.add({
+      'salon': salonId,
+      'name': name,
+      'area': areaId,
+      'address': address,
+      'lat': latitude,
+      'lng': longitude,
+    });
   }
 
   @override
@@ -133,6 +141,7 @@ class FakeBarberRepo implements BarberRepository {
     registrations.add({
       'name': displayName,
       'salon': salonId,
+      'salonName': salonName,
       'area': areaId,
       'address': address,
       'lat': latitude,

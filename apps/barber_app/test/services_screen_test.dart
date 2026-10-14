@@ -35,6 +35,27 @@ void main() {
 
   setUp(() => repo = FakeBarberRepo());
 
+  testWidgets('the number keyboard closes on save and on a tap outside the boxes', (tester) async {
+    repo.services = [saved('s1', 25, 30)];
+    await pumpServices(tester);
+
+    await tester.tap(field('price', 'haircut'));
+    await tester.enterText(field('price', 'haircut'), '30');
+    expect(tester.testTextInput.isVisible, isTrue);
+    await save(tester);
+
+    expect(tester.testTextInput.isVisible, isFalse);
+    expect(repo.savedServices.single.single.price, 30);
+    expect(find.text('تم حفظ الخدمات'), findsOneWidget);
+
+    await tester.tap(field('duration', 'haircut'));
+    await tester.pump();
+    expect(tester.testTextInput.isVisible, isTrue);
+    await tester.tap(find.text('قص وتصفيف كلاسيكي أو حديث'));
+    await tester.pump();
+    expect(tester.testTextInput.isVisible, isFalse);
+  });
+
   testWidgets('lists every service with the saved price and duration', (tester) async {
     repo.services = [saved('s1', 25, 30), saved('s2', 15, 20, enabled: false)];
     await pumpServices(tester);

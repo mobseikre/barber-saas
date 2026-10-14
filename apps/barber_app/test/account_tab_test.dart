@@ -7,6 +7,7 @@ import 'package:shared/shared.dart';
 import 'package:test_support/test_support.dart';
 
 import 'package:barber_app/features/account/account_tab.dart';
+import 'package:barber_app/features/location/location_screen.dart';
 
 import 'support/fake_barber_repo.dart';
 import 'support/fakes.dart';
@@ -58,6 +59,92 @@ void main() {
     );
     await tester.pumpAndSettle();
   }
+
+  testWidgets('the profile card shows the barber, their phone, salon and area, and opens the salon', (tester) async {
+    repo.salonValue = testSalon(ownerId: 'u1', areaId: 'area-1');
+    await pumpAccount(tester, barber: barberEnding(now.add(const Duration(days: 12))));
+
+    expect(find.text('علي القماطي'), findsOneWidget);
+    expect(find.text(formatLibyanPhone('218911002030')), findsOneWidget);
+    expect(find.text('صالون الأناقة · حي الأندلس'), findsOneWidget);
+
+    await tester.tap(find.text('علي القماطي'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LocationScreen), findsOneWidget);
+    expect(tester.widget<TextFormField>(fieldLabelled('اسم الصالون')).controller!.text, 'صالون الأناقة');
+  });
+
+  testWidgets('a renamed salon shows on the profile card when the barber comes back', (tester) async {
+    repo.salonValue = testSalon(ownerId: 'u1', areaId: 'area-1', lat: 32.9, lng: 13.2);
+    await pumpAccount(tester, barber: barberEnding(now.add(const Duration(days: 12))));
+
+    await tester.tap(find.text('علي القماطي'));
+    await tester.pumpAndSettle();
+    await tester.enterText(fieldLabelled('اسم الصالون'), 'صالون النخبة');
+    repo.salonValue = Salon(
+      id: 'salon-1',
+      name: 'صالون النخبة',
+      ownerId: 'u1',
+      areaId: 'area-1',
+      latitude: 32.9,
+      longitude: 13.2,
+      createdAt: DateTime(2026),
+    );
+    await tapVisible(tester, find.widgetWithText(FilledButton, 'حفظ التغييرات'));
+
+    expect(find.byType(LocationScreen), findsNothing, reason: 'saving goes back to the account tab');
+    expect(find.text('صالون النخبة · حي الأندلس'), findsOneWidget);
+  });
+
+  testWidgets('change photo uploads the picked photo for the barber', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      testApp(
+        home: const AccountTab(),
+        barbers: repo,
+        auth: auth,
+        photos: FakePhotoService(testPhoto),
+        barber: barberEnding(now.add(const Duration(days: 12))),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tapVisible(tester, find.text('تغيير الصورة'));
+
+    expect(repo.uploads.single['barber'], 'b1');
+    expect(find.text('تم تحديث الصورة'), findsOneWidget);
+  });
+
+  testWidgets('the plan card names the plan the barber bought', (tester) async {
+    final ends = DateTime(2027, 1, 8, 12);
+    repo.payment = paid(DateTime(2026, 10, 8, 12), ends);
+    await pumpAccount(tester, barber: barberEnding(ends));
+
+    expect(find.text('الباقة الربع سنوية'), findsOneWidget);
+    expect(find.text('الباقة الشهرية'), findsNothing);
+  });
+
+  testWidgets('a barber who never paid sees no plan name', (tester) async {
+    await pumpAccount(tester, barber: barberEnding(null));
+
+    expect(find.text('لا توجد باقة بعد'), findsOneWidget);
+  });
+
+  testWidgets('change password checks the current one, saves, closes and confirms', (tester) async {
+    await pumpAccount(tester, barber: barberEnding(now.add(const Duration(days: 12))));
+
+    await tapVisible(tester, find.text('تغيير كلمة المرور'));
+    await tester.enterText(fieldLabelled('كلمة المرور الحالية'), 'oldpassword');
+    await tester.enterText(fieldLabelled('كلمة المرور الجديدة'), 'newpassword');
+    await tester.enterText(fieldLabelled('تأكيد كلمة المرور الجديدة'), 'newpassword');
+    await tapVisible(tester, find.widgetWithText(FilledButton, 'حفظ كلمة المرور'));
+
+    expect(auth.calls, ['changePassword:oldpassword:newpassword']);
+    expect(find.byType(ChangePasswordScreen), findsNothing);
+    expect(find.text('تم تغيير كلمة المرور'), findsOneWidget);
+  });
 
   testWidgets('an active subscription shows the days left, the dates and the progress', (tester) async {
     final ends = now.add(const Duration(days: 12));
@@ -162,11 +249,24 @@ void main() {
     expect(find.text('لم يُحدد الموقع بعد'), findsOneWidget);
   });
 
+  testWidgets('logging out asks first, and going back keeps the barber signed in', (tester) async {
+    await pumpAccount(tester, barber: barberEnding(now.add(const Duration(days: 12))));
+
+    await tapVisible(tester, find.text('تسجيل الخروج'));
+    expect(find.text('تسجيل الخروج؟'), findsOneWidget);
+    await tester.tap(find.text('رجوع'));
+    await tester.pumpAndSettle();
+
+    expect(auth.calls, isEmpty);
+    expect(find.text('تسجيل الخروج؟'), findsNothing);
+  });
+
   testWidgets('logging out signs the user out', (tester) async {
     await pumpAccount(tester, barber: barberEnding(now.add(const Duration(days: 12))));
 
-    await tester.tap(find.text('تسجيل الخروج'));
-    await tester.pump();
+    await tapVisible(tester, find.text('تسجيل الخروج'));
+    await tester.tap(find.widgetWithText(FilledButton, 'تسجيل الخروج'));
+    await tester.pumpAndSettle();
 
     expect(auth.calls, ['signOut']);
   });
@@ -206,7 +306,7 @@ void main() {
     await pumpAccount(tester, barber: barberEnding(now.add(const Duration(days: 12))), size: const Size(320, 480));
 
     expect(find.text('تسجيل الخروج').hitTestable(), findsNothing, reason: 'below the fold at first');
-    await tester.drag(find.byType(ListView), const Offset(0, -400));
+    await tester.drag(find.byType(ListView), const Offset(0, -1200));
     await tester.pumpAndSettle();
     expect(find.text('تسجيل الخروج').hitTestable(), findsOneWidget);
   });

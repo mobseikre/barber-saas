@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared/shared.dart';
 
-class BookingConfirmedScreen extends StatelessWidget {
+import '../../providers.dart';
+
+class BookingConfirmedScreen extends ConsumerWidget {
   const BookingConfirmedScreen({super.key, required this.booking, required this.barber, required this.serviceName});
 
   final Booking booking;
@@ -9,7 +12,7 @@ class BookingConfirmedScreen extends StatelessWidget {
   final String serviceName;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final rows = [
       ('الحلاق', barber.displayName),
       ('الصالون', barber.salonName),
@@ -71,6 +74,15 @@ class BookingConfirmedScreen extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xxl),
               AppButton(label: 'العودة للرئيسية', onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst)),
+              const SizedBox(height: AppSpacing.md),
+              AppButton(
+                label: 'عرض حجوزاتي',
+                variant: AppButtonVariant.secondary,
+                onPressed: () {
+                  ref.read(homeTabProvider.notifier).select(HomeTab.bookings);
+                  Navigator.of(context).popUntil((r) => r.isFirst);
+                },
+              ),
             ],
           ),
         ),

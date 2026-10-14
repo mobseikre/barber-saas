@@ -33,6 +33,9 @@ class PrintingStickerSharer implements StickerSharer {
 final stickerSharerProvider = Provider<StickerSharer>((_) => const PrintingStickerSharer());
 
 final photoServiceProvider = Provider<PhotoService>((_) => const ImagePickerPhotoService());
+
+/// Opens the system screen that fixes a location failure; tests record the call instead.
+final locationSettingsProvider = Provider<Future<bool> Function(LocationFailure)>((_) => openLocationSettingsFor);
 final mapTileProviderProvider = Provider<TileProvider?>((_) => null);
 
 final serviceCatalogProvider = FutureProvider.autoDispose<List<ServiceCatalogItem>>(

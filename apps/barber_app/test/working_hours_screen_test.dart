@@ -33,6 +33,99 @@ void main() {
 
   setUp(() => repo = FakeBarberRepo());
 
+  Future<void> pumpFromAccount(WidgetTester tester) async {
+    await pumpPhone(
+      tester,
+      testApp(
+        barbers: repo,
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: TextButton(
+                onPressed: () =>
+                    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const WorkingHoursScreen())),
+                child: const Text('حسابي'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('حسابي'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('leaving without changes goes straight back', (tester) async {
+    await pumpFromAccount(tester);
+
+    await tester.tap(find.byType(AppBackButton));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(WorkingHoursScreen), findsNothing);
+    expect(find.byType(AlertDialog), findsNothing);
+  });
+
+  testWidgets('leaving with an unsaved break asks first, and the barber can stay or discard', (tester) async {
+    await pumpFromAccount(tester);
+    await tester.tap(find.text('إضافة'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), 'غداء وصلاة');
+    await tester.tap(find.widgetWithText(FilledButton, 'إضافة'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(AppBackButton));
+    await tester.pumpAndSettle();
+    expect(find.text('تجاهل التغييرات؟'), findsOneWidget);
+
+    await tester.tap(find.text('متابعة التعديل'));
+    await tester.pumpAndSettle();
+    expect(find.text('غداء وصلاة'), findsOneWidget, reason: 'the break is still there to save');
+
+    await tester.tap(find.byType(AppBackButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تجاهل'));
+    await tester.pumpAndSettle();
+    expect(find.byType(WorkingHoursScreen), findsNothing);
+    expect(repo.savedSchedules, isEmpty);
+  });
+
+  testWidgets('a changed day off counts as unsaved too', (tester) async {
+    await pumpFromAccount(tester);
+    await tester.tap(find.byKey(const ValueKey('open-2')));
+    await tester.pump();
+
+    await tester.tap(find.byType(AppBackButton));
+    await tester.pumpAndSettle();
+
+    expect(find.text('تجاهل التغييرات؟'), findsOneWidget);
+  });
+
+  testWidgets('a successful save goes back with the confirmation', (tester) async {
+    await pumpFromAccount(tester);
+    await tester.tap(find.byKey(const ValueKey('open-2')));
+    await tester.pump();
+
+    await save(tester);
+
+    expect(find.byType(WorkingHoursScreen), findsNothing);
+    expect(find.text('تم حفظ أوقات العمل'), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing, reason: 'nothing is left unsaved');
+  });
+
+  testWidgets('a failed save stays on the screen with the changes', (tester) async {
+    repo.saveError = const PostgrestException(message: 'denied', code: '42501');
+    await pumpFromAccount(tester);
+    await tester.tap(find.byKey(const ValueKey('open-2')));
+    await tester.pump();
+
+    await save(tester);
+
+    expect(find.byType(WorkingHoursScreen), findsOneWidget);
+    await tester.tap(find.byType(AppBackButton));
+    await tester.pumpAndSettle();
+    expect(find.text('تجاهل التغييرات؟'), findsOneWidget);
+  });
+
   testWidgets('starts with Saturday to Thursday open and Friday off when nothing is saved', (tester) async {
     await pumpHours(tester);
 

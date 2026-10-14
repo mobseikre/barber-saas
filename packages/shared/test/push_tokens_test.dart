@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared/shared.dart';
 import 'package:test_support/test_support.dart';
@@ -49,6 +51,20 @@ void main() {
     push.rotate('device-token-3');
     await pumpEventQueue();
     expect(repo.calls, ['register:device-token-1', 'unregister:device-token-1'], reason: 'no refresh after sign-out');
+  });
+
+  testWidgets('sign-out does not wait more than the timeout for a network that never answers', (tester) async {
+    final offline = PushTokens(push, _HangingRepository.new);
+    await offline.register('u1');
+
+    var done = false;
+    unawaited(offline.unregister().then((_) => done = true));
+    await tester.pump(PushTokens.unregisterTimeout - const Duration(milliseconds: 1));
+    expect(done, isFalse);
+    await tester.pump(const Duration(milliseconds: 2));
+
+    expect(done, isTrue);
+    expect(push.calls.last, 'deleteToken', reason: 'the device token is still reset');
   });
 
   test('the next user on the device registers again', () async {
@@ -107,4 +123,15 @@ void main() {
       }
     });
   });
+}
+
+class _HangingRepository implements DeviceTokenRepository {
+  @override
+  Future<void> register(String token, DevicePlatform platform) async {}
+
+  @override
+  Future<void> unregister(String token) => Completer<void>().future;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

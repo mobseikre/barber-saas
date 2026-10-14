@@ -23,6 +23,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String? _cityId;
   String? _areaId;
   var _sort = HomeSort.nearest;
+  var _filter = const HomeFilter();
 
   @override
   void initState() {
@@ -72,6 +73,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
   }
 
+  Future<void> _openFilter() async {
+    FocusScope.of(context).unfocus();
+    await showAppBottomSheet<void>(
+      context: context,
+      builder: (ctx) => _FilterSheet(value: _filter, onChanged: (f) => setState(() => _filter = f)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(currentProfileProvider).value;
@@ -92,12 +101,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         if (a.cityId == cityId) a,
     ];
     final areaNames = {for (final a in areas) a.id: a.name};
+    final searching = _search.text.trim().isNotEmpty;
     final shown = filterBarbers(
       _sort == HomeSort.nearest ? ranking.nearest : ranking.topRated,
       areas: areas,
-      cityId: cityId,
-      areaId: _areaId,
+      cityId: searching ? null : cityId,
+      areaId: searching ? null : _areaId,
       query: _search.text,
+      filter: _filter,
+      today: today,
+      now: AppTime.now(),
     );
     final firstName = profile == null ? null : ArabicFormat.firstName(profile.fullName);
 
@@ -106,20 +119,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         title: 'احجز حلاقك',
         subtitle: firstName == null || firstName.isEmpty ? 'مرحباً بك' : 'مرحباً $firstName',
         trailing: city == null ? null : _CityButton(name: city.name, onTap: () => _pickCity(cities, cityId)),
-        bottom: TextField(
-          controller: _search,
-          onChanged: (_) => setState(() {}),
-          textInputAction: TextInputAction.search,
-          style: AppText.body,
-          decoration: const InputDecoration(
-            hintText: 'ابحث عن صالون أو حلاق',
-            prefixIcon: Icon(Icons.search_rounded, color: AppColors.text3),
-          ),
+        bottom: Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _search,
+                onChanged: (_) => setState(() {}),
+                textInputAction: TextInputAction.search,
+                style: AppText.body,
+                decoration: const InputDecoration(
+                  hintText: 'ابحث عن صالون أو حلاق',
+                  prefixIcon: Icon(Icons.search_rounded, color: AppColors.text3),
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            _FilterButton(active: _filter.isActive, onTap: _openFilter),
+          ],
         ),
       ),
       const SizedBox(height: AppSpacing.lg),
       const OfflineNotice(),
-      _AreaChips(areas: cityAreas, selected: _areaId, onSelected: (id) => setState(() => _areaId = id)),
+      if (!searching) _AreaChips(areas: cityAreas, selected: _areaId, onSelected: (id) => setState(() => _areaId = id)),
       if (location.isLoading)
         Padding(
           padding: const EdgeInsets.fromLTRB(AppSpacing.screen, AppSpacing.md, AppSpacing.screen, 0),
@@ -147,7 +168,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             Expanded(
               child: Text(
-                origin != null || city == null ? 'حلاقون قريبون منك' : 'حلاقون في ${city.name}',
+                searching
+                    ? 'نتائج البحث في كل المدن'
+                    : origin != null || city == null
+                    ? 'حلاقون قريبون منك'
+                    : 'حلاقون في ${city.name}',
                 style: AppText.h2,
               ),
             ),
@@ -169,7 +194,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _ when shown.isEmpty => Padding(
         padding: const EdgeInsets.all(AppSpacing.xxxl),
         child: Text(
-          _search.text.trim().isEmpty ? 'لا يوجد حلاقون متاحون للحجز هنا بعد' : 'لا توجد نتائج لبحثك',
+          _filter.isActive || searching ? 'لا توجد نتائج لبحثك' : 'لا يوجد حلاقون متاحون للحجز هنا بعد',
           style: AppText.body.copyWith(color: AppColors.text3),
           textAlign: TextAlign.center,
         ),
@@ -195,11 +220,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ranked: r,
                 areaName: areaNames[r.barber.areaId],
                 today: today?[r.barber.id],
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => SalonScreen(salonId: r.barber.salonId, barberId: r.barber.id),
-                  ),
-                ),
+                onTap: () {
+                  FocusScope.of(context).unfocus();
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => SalonScreen(salonId: r.barber.salonId, barberId: r.barber.id),
+                    ),
+                  );
+                },
               ),
             );
           },
@@ -236,6 +264,96 @@ class _CityButton extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _FilterButton extends StatelessWidget {
+  const _FilterButton({required this.active, required this.onTap});
+
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        SquareIconButton(
+          icon: Icons.tune_rounded,
+          tooltip: 'تصفية',
+          background: AppColors.poleRed,
+          foreground: AppColors.surface,
+          onPressed: onTap,
+        ),
+        if (active)
+          PositionedDirectional(
+            top: -AppSpacing.xs,
+            end: -AppSpacing.xs,
+            child: Container(
+              width: AppSizes.stepDot,
+              height: AppSizes.stepDot,
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.poleRed, width: AppSizes.ring),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _FilterSheet extends StatefulWidget {
+  const _FilterSheet({required this.value, required this.onChanged});
+
+  final HomeFilter value;
+  final ValueChanged<HomeFilter> onChanged;
+
+  @override
+  State<_FilterSheet> createState() => _FilterSheetState();
+}
+
+class _FilterSheetState extends State<_FilterSheet> {
+  late var _value = widget.value;
+
+  void _set(HomeFilter value) {
+    setState(() => _value = value);
+    widget.onChanged(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget row(String label, bool on, ValueChanged<bool> onChanged) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: AppText.bodyStrong)),
+          AppSwitch(value: on, onChanged: onChanged, semanticLabel: label),
+        ],
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.screen, 0, AppSpacing.screen, AppSpacing.screen),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('تصفية النتائج', style: AppText.h2),
+          const SizedBox(height: AppSpacing.sm),
+          row('مفتوح الآن فقط', _value.openNow, (v) => _set(_value.copyWith(openNow: v))),
+          row('حلاقون VIP فقط', _value.vipOnly, (v) => _set(_value.copyWith(vipOnly: v))),
+          if (_value.isActive) ...[
+            const SizedBox(height: AppSpacing.sm),
+            AppButton(
+              label: 'إعادة الضبط',
+              variant: AppButtonVariant.secondary,
+              onPressed: () => _set(const HomeFilter()),
+            ),
+          ],
+        ],
       ),
     );
   }

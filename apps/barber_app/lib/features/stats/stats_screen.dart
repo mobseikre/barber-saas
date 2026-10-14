@@ -115,8 +115,13 @@ class _IncomeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppCard(
+    return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: AppColors.border),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -142,9 +147,9 @@ class _IncomeCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.baseline,
               textBaseline: TextBaseline.alphabetic,
               children: [
-                Text(ArabicFormat.number(amount), style: AppText.statValue),
+                Text(ArabicFormat.number(amount), style: AppText.incomeValue),
                 const SizedBox(width: AppSpacing.xs),
-                Text('د.ل', style: AppText.bodyStrong.copyWith(color: AppColors.text3)),
+                Text('د.ل', style: AppText.buttonCompact.copyWith(color: AppColors.text2)),
               ],
             ),
           ),
@@ -170,13 +175,10 @@ class _TopServices extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: AppSizes.input,
-                height: AppSizes.input,
-                decoration: BoxDecoration(
-                  color: AppColors.red50,
-                  borderRadius: BorderRadius.circular(AppRadius.control),
-                ),
-                child: const Icon(Icons.workspace_premium_outlined, color: AppColors.red700),
+                width: AppSizes.iconTile,
+                height: AppSizes.iconTile,
+                decoration: BoxDecoration(color: AppColors.red100, borderRadius: BorderRadius.circular(AppRadius.tile)),
+                child: const Icon(Icons.workspace_premium_outlined, color: AppColors.vipText),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
@@ -184,7 +186,10 @@ class _TopServices extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('الخدمة الأكثر طلباً هذا الشهر', style: AppText.caption.copyWith(color: AppColors.text3)),
-                    Text(services.isEmpty ? 'لا توجد حجوزات هذا الشهر' : services.first.nameAr, style: AppText.h2),
+                    Text(
+                      services.isEmpty ? 'لا توجد حجوزات هذا الشهر' : services.first.nameAr,
+                      style: AppText.tileTitle,
+                    ),
                   ],
                 ),
               ),

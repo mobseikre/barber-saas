@@ -94,6 +94,7 @@ class ActionButton extends StatelessWidget {
     this.icon,
     this.border,
     this.height = AppSizes.actionButton,
+    this.loading = false,
   });
 
   const ActionButton.attended({super.key, required this.onPressed, this.height = AppSizes.actionButton})
@@ -101,21 +102,27 @@ class ActionButton extends StatelessWidget {
       icon = Icons.check_rounded,
       foreground = AppColors.success,
       background = AppColors.successBg,
-      border = null;
+      border = null,
+      loading = false;
 
   const ActionButton.noShow({super.key, required this.onPressed, this.height = AppSizes.actionButton})
     : label = 'لم يحضر',
       icon = Icons.close_rounded,
       foreground = AppColors.warning,
       background = AppColors.warningBg,
-      border = null;
+      border = null,
+      loading = false;
 
-  const ActionButton.cancel({super.key, required this.onPressed, this.height = AppSizes.actionButton})
-    : label = 'إلغاء الحجز',
-      icon = null,
-      foreground = AppColors.danger,
-      background = AppColors.surface,
-      border = AppColors.border;
+  const ActionButton.cancel({
+    super.key,
+    required this.onPressed,
+    this.height = AppSizes.actionButton,
+    this.loading = false,
+  }) : label = 'إلغاء الحجز',
+       icon = null,
+       foreground = AppColors.danger,
+       background = AppColors.surface,
+       border = AppColors.border;
 
   final String label;
   final VoidCallback? onPressed;
@@ -125,19 +132,22 @@ class ActionButton extends StatelessWidget {
   final IconData? icon;
   final double height;
 
+  /// Shows a spinner in place of the label and ignores taps while the action runs.
+  final bool loading;
+
   @override
   Widget build(BuildContext context) {
     final compact = height == AppSizes.cardButton;
     final radius = BorderRadius.circular(compact ? AppRadius.smallButton : AppRadius.control);
     return Opacity(
-      opacity: onPressed == null ? 0.5 : 1,
+      opacity: onPressed == null && !loading ? 0.5 : 1,
       child: SizedBox(
         height: height,
         child: Material(
           color: background,
           borderRadius: radius,
           child: InkWell(
-            onTap: onPressed,
+            onTap: loading ? null : onPressed,
             borderRadius: radius,
             child: Container(
               decoration: BoxDecoration(
@@ -146,22 +156,27 @@ class ActionButton extends StatelessWidget {
               ),
               alignment: Alignment.center,
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (icon != null) ...[
-                      Icon(icon, size: AppSizes.iconSm, color: foreground),
-                      const SizedBox(width: AppSpacing.xs),
-                    ],
-                    Text(
-                      label,
-                      style: (compact ? AppText.buttonCompact : AppText.buttonSmall).copyWith(color: foreground),
+              child: loading
+                  ? SizedBox.square(
+                      dimension: AppSizes.iconSm,
+                      child: CircularProgressIndicator(strokeWidth: AppSizes.spinnerStroke, color: foreground),
+                    )
+                  : FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (icon != null) ...[
+                            Icon(icon, size: AppSizes.iconSm, color: foreground),
+                            const SizedBox(width: AppSpacing.xs),
+                          ],
+                          Text(
+                            label,
+                            style: (compact ? AppText.buttonCompact : AppText.buttonSmall).copyWith(color: foreground),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
-              ),
             ),
           ),
         ),

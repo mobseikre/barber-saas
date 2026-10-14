@@ -206,6 +206,7 @@ class FakeBookingRepo implements BookingRepository {
   final errors = <Object>[];
   final cancelled = <String>[];
   Object? cancelError;
+  Completer<void>? cancelGate;
   void Function(String bookingId)? onCancel;
 
   @override
@@ -244,6 +245,7 @@ class FakeBookingRepo implements BookingRepository {
 
   @override
   Future<Booking> cancel(String bookingId, {BarberCancelReason? reason, String? note}) async {
+    await cancelGate?.future;
     if (cancelError != null) throw cancelError!;
     cancelled.add(bookingId);
     onCancel?.call(bookingId);

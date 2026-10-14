@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,6 +25,61 @@ void main() {
   }
 
   final cancelButton = find.widgetWithText(InkWell, 'إلغاء الحجز');
+
+  testWidgets('while a cancellation is sent the button shows it is working and cannot be pressed again', (
+    tester,
+  ) async {
+    await openTab(tester, seeds: [myBooking()]);
+    final gate = Completer<void>();
+    deps.bookings.cancelGate = gate;
+    deps.bookings.onCancel = deps.myBookings.markCancelled;
+
+    await tapVisible(tester, cancelButton);
+    await tester.tap(find.text('نعم، إلغاء الحجز'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final button = find.ancestor(of: find.byType(CircularProgressIndicator), matching: find.byType(ActionButton));
+    expect(button, findsOneWidget);
+    await tester.tap(button, warnIfMissed: false);
+    await tester.pump();
+    expect(find.text('إلغاء الحجز؟'), findsNothing, reason: 'no second confirmation opens');
+
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(deps.bookings.cancelled, hasLength(1));
+    expect(find.text('تم إلغاء الحجز'), findsOneWidget);
+    expect(
+      find.text('لا توجد حجوزات قادمة'),
+      findsOneWidget,
+      reason: 'the list was refreshed before the card came back',
+    );
+  });
+
+  testWidgets('حجوزاتي reloads every time the tab is opened and when the app comes back', (tester) async {
+    deps = TestDeps(auth: FakeAuthRepo(userId: 'customer-1'));
+    await pumpPhone(tester, deps.app(const HomeShell()));
+    final before = deps.myBookings.loads;
+
+    await tester.tap(find.text('حجوزاتي'));
+    await tester.pumpAndSettle();
+    expect(deps.myBookings.loads, before + 1);
+
+    await tester.tap(find.text('الرئيسية'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('حجوزاتي'));
+    await tester.pumpAndSettle();
+    expect(deps.myBookings.loads, before + 2);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(deps.myBookings.loads, before + 3);
+  });
 
   testWidgets('a visitor is asked to sign in', (tester) async {
     await openTab(tester, signedIn: false);
@@ -259,6 +316,8 @@ void main() {
 
     await tapVisible(tester, find.text('حسابي'));
     await tapVisible(tester, find.text('تسجيل الخروج'));
+    await tester.tap(find.widgetWithText(FilledButton, 'تسجيل الخروج'));
+    await tester.pumpAndSettle();
     await tapVisible(tester, find.text('حجوزاتي'));
 
     expect(find.text('صالون الأناقة'), findsNothing);

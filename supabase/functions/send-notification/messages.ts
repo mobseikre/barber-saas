@@ -18,6 +18,18 @@ export interface NotificationPayload {
   cancel_note?: string;
 }
 
+/** The body that the `barbers_notify_activation` trigger posts. */
+export interface ActivationPayload {
+  type: 'barber_activated';
+  recipient_id: string;
+  audience: 'barber';
+  barber_name: string;
+  /** Customers can book the barber now; otherwise the account is active but the subscription is not. */
+  bookable: boolean;
+  /** The barber was active before, so a lapsed subscription was renewed. */
+  renewed: boolean;
+}
+
 export interface PushMessage {
   title: string;
   body: string;
@@ -87,9 +99,23 @@ function text(p: NotificationPayload, startsAt: Date): { title: string; body: st
   }
 }
 
+function activation(p: ActivationPayload): { title: string; body: string } {
+  if (!p.bookable) {
+    return { title: 'تم تفعيل حسابك', body: 'فعّل اشتراكك مع الإدارة ليظهر حسابك للزبائن ويحجزوا عندك.' };
+  }
+  return p.renewed
+    ? { title: 'تم تجديد اشتراكك', body: 'عاد حسابك للظهور للزبائن ويمكنهم الحجز عندك الآن.' }
+    : { title: 'تم تفعيل حسابك', body: 'حسابك ظاهر للزبائن الآن ويمكنهم الحجز عندك.' };
+}
+
 /** The Arabic notification for [payload], or null when the payload is not one we send. */
 export function composeMessage(payload: unknown): PushMessage | null {
   if (typeof payload !== 'object' || payload === null) return null;
+  if ((payload as { type?: unknown }).type === 'barber_activated') {
+    const a = payload as ActivationPayload;
+    if (typeof a.recipient_id !== 'string' || a.audience !== 'barber') return null;
+    return { ...activation(a), data: { type: a.type } };
+  }
   const p = payload as NotificationPayload;
   if (typeof p.booking_id !== 'string' || typeof p.recipient_id !== 'string') return null;
   if (p.audience !== 'barber' && p.audience !== 'customer') return null;

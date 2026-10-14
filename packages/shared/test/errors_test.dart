@@ -59,7 +59,7 @@ void main() {
       expect(bookingErrorMessage(db('day_closed', code: 'P0001')), 'هذا اليوم مغلق');
       expect(bookingErrorMessage(db('inside_break', code: 'P0001')), 'الوقت المختار داخل استراحة');
       expect(bookingErrorMessage(db('outside_working_hours', code: 'P0001')), 'الوقت المختار خارج أوقات العمل');
-      expect(bookingErrorMessage(db('barber_not_active', code: 'P0001')), 'حسابك بانتظار التفعيل من الإدارة');
+      expect(bookingErrorMessage(db('barber_not_active', code: 'P0001')), 'حسابك غير مفعّل حالياً، تواصل مع الإدارة');
     });
 
     test('length limits use the shared constants', () {

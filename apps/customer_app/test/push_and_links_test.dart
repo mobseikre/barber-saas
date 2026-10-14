@@ -56,6 +56,8 @@ void main() {
       await tester.tap(find.text('حسابي'));
       await tester.pumpAndSettle();
       await tapVisible(tester, find.text('تسجيل الخروج'));
+      await tester.tap(find.widgetWithText(FilledButton, 'تسجيل الخروج'));
+      await tester.pumpAndSettle();
 
       expect(deps.deviceTokens.calls, ['unregister:device-token-1']);
       expect(deps.auth.calls, ['signOut']);
@@ -130,6 +132,29 @@ void main() {
       final salon = tester.widget<SalonScreen>(find.byType(SalonScreen));
       expect((salon.salonId, salon.barberId), ('salon-1', _aliId));
       expect(find.text('صالون الأناقة'), findsOneWidget);
+    });
+
+    testWidgets('a link to a listed barber who cannot be booked opens the salon without choosing someone else', (
+      tester,
+    ) async {
+      const lapsedId = '30000000-0000-0000-0000-0000000000aa';
+      await openWithAli(tester);
+      deps.directory.barbers = [
+        ...deps.directory.barbers,
+        listing(id: lapsedId, name: 'كمال المنتصر', bookable: false),
+      ];
+      deps.directory.team = [
+        ...deps.directory.team,
+        SalonBarber(id: lapsedId, salonId: 'salon-1', displayName: 'كمال المنتصر'),
+      ];
+
+      deps.links.add(barberLink(lapsedId));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SalonScreen), findsOneWidget);
+      expect(find.text('كمال المنتصر غير متاح للحجز حالياً'), findsOneWidget);
+      expect(find.text('مع علي'), findsNothing, reason: 'علي is not picked behind the customer\'s back');
+      expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'احجز الآن')).onPressed, isNull);
     });
 
     testWidgets('a link to a barber who is not listed says so', (tester) async {

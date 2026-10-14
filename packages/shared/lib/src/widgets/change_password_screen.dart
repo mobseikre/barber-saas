@@ -1,7 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared/shared.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../errors/auth_errors.dart';
+import '../providers/core_providers.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_dimens.dart';
+import '../theme/app_text.dart';
+import 'app_button.dart';
+import 'app_text_field.dart';
+import 'page_title.dart';
+
+/// Lets a signed-in user replace their password after confirming the current one.
 class ChangePasswordScreen extends ConsumerStatefulWidget {
   const ChangePasswordScreen({super.key});
 
@@ -26,7 +36,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_saving || !_formKey.currentState!.validate()) return;
     final messenger = ScaffoldMessenger.of(context);
     setState(() {
       _saving = true;

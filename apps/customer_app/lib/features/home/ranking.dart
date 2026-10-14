@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared/shared.dart';
 
+import '../../data/directory_repository.dart';
+
 enum HomeSort { nearest, topRated }
 
 class RankedBarber {
@@ -64,13 +66,29 @@ List<RankedBarber> rankBarbers(
   });
 }
 
-/// Keeps the barbers of [cityId] (and of [areaId] when set) whose barber or salon name contains [query].
+class HomeFilter {
+  const HomeFilter({this.openNow = false, this.vipOnly = false});
+
+  final bool openNow;
+  final bool vipOnly;
+
+  bool get isActive => openNow || vipOnly;
+
+  HomeFilter copyWith({bool? openNow, bool? vipOnly}) =>
+      HomeFilter(openNow: openNow ?? this.openNow, vipOnly: vipOnly ?? this.vipOnly);
+}
+
+/// Keeps the barbers of [cityId] (and of [areaId] when set) whose barber or salon name contains [query],
+/// and that pass [filter]. Open-now needs [today] and [now]; a barber without hours loaded counts as not open.
 List<RankedBarber> filterBarbers(
   List<RankedBarber> ranked, {
   required List<Area> areas,
   String? cityId,
   String? areaId,
   String query = '',
+  HomeFilter filter = const HomeFilter(),
+  Map<String, BarberToday>? today,
+  DateTime? now,
 }) {
   final cityOfArea = {for (final a in areas) a.id: a.cityId};
   final q = query.trim();
@@ -78,10 +96,15 @@ List<RankedBarber> filterBarbers(
     for (final r in ranked)
       if ((cityId == null || cityOfArea[r.barber.areaId] == cityId) &&
           (areaId == null || r.barber.areaId == areaId) &&
-          (q.isEmpty || r.barber.displayName.contains(q) || r.barber.salonName.contains(q)))
+          (q.isEmpty || r.barber.displayName.contains(q) || r.barber.salonName.contains(q)) &&
+          (!filter.vipOnly || r.barber.isVip) &&
+          (!filter.openNow || _isOpenNow(today?[r.barber.id], now)))
         r,
   ];
 }
+
+bool _isOpenNow(BarberToday? today, DateTime? now) =>
+    today != null && now != null && openState(hours: today.hours, closure: today.closure, now: now) is OpenNow;
 
 /// The city to show first: the one of the nearest barber, or else the first city.
 String? defaultCityId({required List<RankedBarber> nearest, required List<Area> areas, required List<City> cities}) {

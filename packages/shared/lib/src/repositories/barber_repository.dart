@@ -57,6 +57,7 @@ class BarberRepository {
 
   Future<void> updateSalon({
     required String salonId,
+    String? name,
     String? areaId,
     String? address,
     double? latitude,
@@ -65,6 +66,7 @@ class BarberRepository {
     final rows = await _client
         .from('salons')
         .update({
+          'name': ?name,
           'area_id': areaId,
           'address': address,
           if (latitude != null && longitude != null) 'location': 'SRID=4326;POINT($longitude $latitude)',
